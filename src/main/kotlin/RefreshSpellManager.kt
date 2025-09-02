@@ -1,4 +1,5 @@
-import org.tfcc.bingo.Spell
+package org.tfcc.bingo
+
 import java.util.*
 import java.util.concurrent.ThreadLocalRandom
 import kotlin.collections.HashMap

@@ -1,6 +1,5 @@
 package org.tfcc.bingo
 
-import RefreshSpellManager
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.tfcc.bingo.SpellStatus.*

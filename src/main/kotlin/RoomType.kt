@@ -1,6 +1,5 @@
 package org.tfcc.bingo
 
-import RefreshSpellManager
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.message.HandlerException
 
