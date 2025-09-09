@@ -20,6 +20,7 @@ object ResetRoomHandler : RequestHandler {
             room.lastGetTime[i] = 0
         }
         room.banPick = null
+        room.gameLogger = null
         room.push("push_reset_room", null)
         return null
     }

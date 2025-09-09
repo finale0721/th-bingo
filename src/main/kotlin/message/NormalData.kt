@@ -3,9 +3,6 @@ package org.tfcc.bingo.message
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/**
- * @param banPick 0-选，1-ban
- */
 @Serializable
 class NormalData {
 
@@ -18,12 +15,12 @@ class NormalData {
 
     /** A盘面的传送门下标 */
     @SerialName("is_portal_a")
-    val isPortalA = Array(25) { 0 }
+    var isPortalA = Array(25) { 0 }
 
     @SerialName("is_portal_b")
-    val isPortalB = Array(25) { 0 }
+    var isPortalB = Array(25) { 0 }
 
     // 0x1: Left在A面收取 0x2: Left, B; Right = Left << 4
     @SerialName("get_on_which_board")
-    val getOnWhichBoard = Array(25) { 0 }
+    var getOnWhichBoard = Array(25) { 0 }
 }

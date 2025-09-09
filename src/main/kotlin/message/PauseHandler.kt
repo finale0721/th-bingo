@@ -40,6 +40,13 @@ object PauseHandler : RequestHandler {
             room.aiAgent?.onGameResumed()
         }
         room.push("push_pause", JsonObject(mapOf("pause" to JsonPrimitive(pause))))
+        // Log the update action
+        room.gameLogger?.logAction(
+            player = player,
+            actionType = if (pause) "pause" else "resume",
+            spellIndex = -1,
+            spell = room.spells!![0]
+        )
         return null
     }
 }

@@ -30,6 +30,13 @@ object UpdateSpellStatusHandler : RequestHandler {
         room.type.updateSpellStatusPostProcesser(room, player, idx, formerStatus, spellStatus)
         room.type.pushSpells(room, idx, player.name)
         room.aiAgent?.onCellStatusChanged(idx, formerStatus, spellStatus)
+        // Log the update action
+        room.gameLogger?.logAction(
+            player = player,
+            actionType = "set-$spellStatus",
+            spellIndex = idx,
+            spell = room.spells!![idx]
+        )
         return null
     }
 

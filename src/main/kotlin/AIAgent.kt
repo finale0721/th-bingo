@@ -53,6 +53,8 @@ class AIAgent(private val room: Room) {
         val isSuccess: Boolean, // 任务开始时即确定成败
     )
 
+    private var failedTask = -1
+
     private var currentTask: AITask? = null
 
     /** 动态记录和评估对手的画像。 */
@@ -279,10 +281,10 @@ class AIAgent(private val room: Room) {
                 }
             } else {
                 logger.info("Attempt on cell ${task.targetIndex} FAILED.")
-                // 失败后，干净地取消自己的选择，然后回到IDLE状态
-                cancelCurrentSelection("Attempt Failed")
+                // 失败后将任务取消，重建任务
+                failedTask = task.targetIndex
                 currentTask = null
-                currentState = AIState.IDLE
+                startNewSelectionTask(failedTask)
             }
         }
     }
@@ -358,18 +360,18 @@ class AIAgent(private val room: Room) {
             val randFloat1 = Random.nextFloat()
             val randFloat2 = Random.nextFloat()
             if (spell.fastest > 60.0f) {
-                model.calculatedAI = spell.fastest + 3.5f + 1f * randFloat1
+                model.calculatedAI = spell.fastest + 3f + 1f * randFloat1
             } else {
                 // 否则，基于熟练度给一个较小的随机时间惩罚（形状不好，最多+20%）、并额外进行熟练度惩罚。
-                model.calculatedAI = spell.fastest + 4f + randFloat1 * spell.fastest * .2f +
+                model.calculatedAI = spell.fastest + 3f + randFloat1 * spell.fastest * .2f +
                     randFloat2 * max(6f - aiExp / 4f, 0f)
             }
             // 计算基础收率
             var baseCapRate = spell.maxCapRate
             // 底力不足会严重影响收卡效率，所以给一个额外的惩罚。
             baseCapRate *= exp(-0.2f * max(spellPowerWeight * spell.difficulty - aiPower, 0f))
-            // 熟练度太低也会影响收卡效率。影响较小。达到16不再影响。同时所有卡收率上限降低10%以模拟真实情况。
-            baseCapRate *= .8f + min(.1f, aiExp / 160f)
+            // 熟练度太低也会影响收卡效率。影响较小。达到16不再影响。同时根据难度来给一个固有的收率降低（max 10%）。
+            baseCapRate *= .9f - spell.difficulty / 160f + min(.1f, aiExp / 160f)
             // 然后根据能力值计算出收率
             val finalRate =
                 baseCapRate / (1f + exp(-1f * spell.changeRate *
@@ -377,8 +379,8 @@ class AIAgent(private val room: Room) {
                 ))
             // 给收率一个界限
             model.calculatedPI = min(.99f, max(finalRate, .01f))
-            // 计算失败的耗时。若成功率低说明撞的很可能靠前一点，稍微缩短平均失败时间。重开游戏另加2秒。
-            model.penalty = 2f + spell.missTime * min(.9f + finalRate * .2f, 1.05f)
+            // 计算失败的耗时。若成功率低说明撞的很可能靠前一点，稍微缩短平均失败时间。重开游戏另加1.5秒。
+            model.penalty = 1.5f + spell.missTime * min(.9f + finalRate * .2f, 1.05f)
 
             // 期望时间=A+F*(1-P)/P
             model.expectedTime = model.calculatedAI + model.penalty * (1f - model.calculatedPI) / model.calculatedPI
@@ -979,8 +981,8 @@ class AIAgent(private val room: Room) {
     private fun calculateGamePhaseModifier(boardState: Array<PlayerState>): Double {
         val totalPieces = boardState.count { it != PlayerState.EMPTY }
         return when {
-            totalPieces <= 8 -> totalPieces * .1 // 初局，优先考虑占位置
-            totalPieces <= 16 -> 0.9 // 中盘，构筑连线
+            totalPieces <= 8 -> totalPieces * 0.1 // 初局，优先考虑占位置
+            totalPieces <= 16 -> 1.0 // 中盘，构筑连线
             totalPieces <= 20 -> 0.4 // 开始抢分
             else -> 0.1 // 完全进入抢分模式
         }

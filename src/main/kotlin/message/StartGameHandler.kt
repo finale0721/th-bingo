@@ -16,9 +16,13 @@ object StartGameHandler : RequestHandler {
         room.type.resetData(room)
         room.type.rollSpellCard(room)
         room.type.initStatus(room)
+        if (room.gameLogger == null) {
+            room.gameLogger = GameLogger()
+        }
         // 后处理
         room.type.onStart(room)
         room.push("push_start_game", room.roomConfig.encode())
+        room.gameLogger!!.startLog(room)
         return null
     }
 }

@@ -57,6 +57,9 @@ class Room(
     var banPick: BanPick? = null
     var debugSpells: IntArray? = null
 
+    /** 操作记录器 */
+    var gameLogger: GameLogger? = null
+
     /** 最后一次操作的时间戳，毫秒，业务逻辑中请勿修改此字段 */
     var lastOperateMs: Long = 0
     val type

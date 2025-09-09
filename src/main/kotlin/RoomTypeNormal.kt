@@ -27,7 +27,8 @@ object RoomTypeNormal : RoomType {
             handleBlindSettings(room)
         }
 
-        if (room.roomConfig.useAI) {
+        // FIXME: SAFETY CHECK SHOULD NOT USE HARDCODED STRING AND CHECK THE CONFIG CORRUPTION ISSUE
+        if (room.roomConfig.useAI && room.players[1]!!.name.equals("训练用毛玉")) {
             if (room.roomConfig.blindSetting > 1 || room.roomConfig.dualBoard > 0) {
                 throw HandlerException("AI陪练模式不支持盲盒或双重盘面")
             }
@@ -255,6 +256,23 @@ object RoomTypeNormal : RoomType {
             if (playerIndex == 0) room.aiAgent?.onOpponentSelectedCell(spellIndex)
         }
 
+        if (room.roomConfig.dualBoard <= 0) {
+            room.gameLogger?.logAction(
+                player = room.players[playerIndex]!!,
+                actionType = "select",
+                spellIndex = spellIndex,
+                spell = room.spells!![spellIndex],
+            )
+            return
+        }
+        val board = if (playerIndex == 0) room.normalData!!.whichBoardA else room.normalData!!.whichBoardB
+        room.gameLogger?.logAction(
+            player = room.players[playerIndex]!!,
+            actionType = "select",
+            spellIndex = spellIndex,
+            spell = if (board == 0) room.spells!![spellIndex] else room.spells2!![spellIndex],
+        )
+
         return
         /*
         // 无导播模式不记录
@@ -300,7 +318,20 @@ object RoomTypeNormal : RoomType {
 
         room.lastGetTime[playerIndex] = now // 更新上次收卡时间
 
-        if (room.roomConfig.dualBoard <= 0) return
+        if (room.roomConfig.useAI) {
+            if (playerIndex == 0) room.aiAgent?.onOpponentFinishedCell(spellIndex)
+        }
+
+        if (room.roomConfig.dualBoard <= 0) {
+            room.gameLogger?.logAction(
+                player = room.players[playerIndex]!!,
+                actionType = if (st == BOTH_SELECT) "contest_win" else "finish",
+                spellIndex = spellIndex,
+                spell = room.spells!![spellIndex],
+            )
+            return
+        }
+
         // 记录是谁在哪个盘面上收取的
         val boardIndex = if (playerIndex == 0) room.normalData!!.whichBoardA else room.normalData!!.whichBoardB
         room.normalData!!.getOnWhichBoard[spellIndex] = when (playerIndex * 2 + boardIndex) {
@@ -310,6 +341,15 @@ object RoomTypeNormal : RoomType {
             3 -> 0x20
             else -> throw HandlerException("错误的收取盘面记录")
         }
+        // 日志记录
+        val board = if (playerIndex == 0) room.normalData!!.whichBoardA else room.normalData!!.whichBoardB
+        room.gameLogger?.logAction(
+            player = room.players[playerIndex]!!,
+            actionType = if (st == BOTH_SELECT) "contest_win" else "finish",
+            spellIndex = spellIndex,
+            spell = if (board == 0) room.spells!![spellIndex] else room.spells2!![spellIndex],
+        )
+
         // 如果是传送门格，更改该玩家的盘面
         // 如果是A玩家在A面收取一张A传送门卡，或者...
         if (playerIndex == 0) {
@@ -324,10 +364,6 @@ object RoomTypeNormal : RoomType {
                 room.normalData!!.whichBoardB = 0
         }
         // Finish Spell 会调用pushSpell推送盘面更改结果，视觉改变交由前端处理
-
-        if (room.roomConfig.useAI) {
-            if (playerIndex == 0) room.aiAgent?.onOpponentFinishedCell(spellIndex)
-        }
 
         return
         /*
