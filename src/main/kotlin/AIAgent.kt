@@ -7,7 +7,6 @@ import java.util.concurrent.*
 import kotlin.math.exp
 import kotlin.math.max
 import kotlin.random.Random
-import kotlin.time.times
 
 /**
  * AI陪练Agent
@@ -256,13 +255,9 @@ class AIAgent(private val room: Room) {
         }
         val currentCellStatus = room.spellStatus?.get(task.targetIndex)
         if (currentCellStatus != SpellStatus.RIGHT_SELECT && currentCellStatus != SpellStatus.BOTH_SELECT) {
-            logger.warn(
-                "Task for cell ${task.targetIndex} aborted " +
-                    "because status is now $currentCellStatus (preempted or cancelled)."
-            )
-            currentTask = null
-            currentState = AIState.IDLE
-            return
+            val reason = "Task on cell ${task.targetIndex} was preempted. Current status: $currentCellStatus."
+            applyPreemptionPenalty(reason)
+            return // 必须返回，因为任务已失效
         }
 
         if (getCorrectedTime() >= task.startTimeMs + task.durationMs) {
@@ -292,7 +287,7 @@ class AIAgent(private val room: Room) {
     /** 当AI完成一个格子后，等待冷却CD结束。 */
     private fun runCooldownLogic() {
         val cdTimeMs = (room.roomConfig.cdTime ?: 0) * 1000L
-        if (getCorrectedTime() >= room.lastGetTime[aiPlayerIndex] + cdTimeMs) {
+        if (System.currentTimeMillis() >= room.lastGetTime[aiPlayerIndex] + cdTimeMs) {
             logger.debug("Cooldown finished.")
             currentState = AIState.IDLE
         }
@@ -313,9 +308,8 @@ class AIAgent(private val room: Room) {
             val task = currentTask
             val actualStatus = room.spellStatus?.get(task?.targetIndex ?: -1)
             if (task != null && actualStatus != SpellStatus.RIGHT_SELECT && actualStatus != SpellStatus.BOTH_SELECT) {
-                currentTask = null
-                currentState = AIState.IDLE
-                return false
+                val reason = "Task on cell ${task.targetIndex} was changed. Current status: $actualStatus."
+                applyPreemptionPenalty(reason)
             }
         }
         return true
@@ -369,7 +363,7 @@ class AIAgent(private val room: Room) {
             // 计算基础收率
             var baseCapRate = spell.maxCapRate
             // 底力不足会严重影响收卡效率，所以给一个额外的惩罚。
-            baseCapRate *= exp(-0.2f * max(spellPowerWeight * spell.difficulty - aiPower, 0f))
+            baseCapRate *= exp(-spell.difficulty / 16f * max(spellPowerWeight * spell.difficulty - aiPower, 0f))
             // 熟练度太低也会影响收卡效率。影响较小。达到16不再影响。同时根据难度来给一个固有的收率降低（max 10%）。
             baseCapRate *= .9f - spell.difficulty / 160f + min(.1f, aiExp / 160f)
             // 然后根据能力值计算出收率
@@ -378,7 +372,7 @@ class AIAgent(private val room: Room) {
                     (aiPower * spellPowerWeight + aiExp * spellExpWeight - spell.difficulty)
                 ))
             // 给收率一个界限
-            model.calculatedPI = min(.99f, max(finalRate, .01f))
+            model.calculatedPI = min(.999f, max(finalRate, .001f))
             // 计算失败的耗时。若成功率低说明撞的很可能靠前一点，稍微缩短平均失败时间。重开游戏另加1.5秒。
             model.penalty = 1.5f + spell.missTime * min(.9f + finalRate * .2f, 1.05f)
 
@@ -415,9 +409,7 @@ class AIAgent(private val room: Room) {
     /** 获取考虑了暂停时间的当前游戏时间戳。 */
     private fun getCorrectedTime(): Long = System.currentTimeMillis() - (room.totalPauseMs +
         if (room.pauseBeginMs > 0) System.currentTimeMillis() - room.pauseBeginMs else 0)
-    // </editor-fold>
 
-    // <editor-fold desc="Decision Making Engine">
     /** AI决策引擎的状态枚举。 */
     private enum class PlayerState { AI, HUMAN, EMPTY }
     private enum class InitiativeState { CLEAR, NEUTRAL, DANGEROUS }
@@ -860,15 +852,12 @@ class AIAgent(private val room: Room) {
     /** 执行放弃操作。 */
     private fun performAbandon() {
         val task = currentTask ?: return
-        logger.warn("AI is using an abandon charge on cell ${task.targetIndex}. Remaining: ${remainingAbandons - 1}")
+        val reason = "AI actively abandoned cell ${task.targetIndex}. Remaining charges: ${remainingAbandons - 1}"
         remainingAbandons--
 
         cancelCurrentSelection("Abandoned")
+        applyPreemptionPenalty(reason)
 
-        // 换卡需要一定时间惩罚
-        currentTask = null
-        currentState = AIState.COOLDOWN
-        room.lastGetTime[aiPlayerIndex] = getCorrectedTime() - ((room.roomConfig.cdTime ?: 0) * 1000L) + abandonPenaltyMs
         // 换卡次数-1
         room.changeCardCount[1] -= 1
     }
@@ -986,5 +975,26 @@ class AIAgent(private val room: Room) {
             totalPieces <= 20 -> 0.4 // 开始抢分
             else -> 0.1 // 完全进入抢分模式
         }
+    }
+
+    /**
+     * 应用因目标被抢占或主动放弃而导致的时间惩罚。
+     * 这会模拟真实玩家重新评估局势和切换目标所需的时间。
+     * @param reason 记录惩罚原因的日志信息。
+     */
+    private fun applyPreemptionPenalty(reason: String) {
+        logger.warn("AI is incurring a time penalty. Reason: $reason")
+
+        // 清理当前无效的任务
+        currentTask = null
+
+        // 将状态切换到冷却，以强制执行等待
+        currentState = AIState.COOLDOWN
+
+        // 核心：设置一个虚拟的“上次收卡时间”，使得AI必须等待 abandonPenaltyMs 才能再次行动。
+        // 这个公式通过将“上次收卡时间”设置在 (当前逻辑时间 + 惩罚时间 - 标准CD) 之前，
+        // 来巧妙地让 runCooldownLogic 的判断在 abandonPenaltyMs 之后才为真。
+        val cdTimeMs = (room.roomConfig.cdTime ?: 0) * 1000L
+        room.lastGetTime[aiPlayerIndex] = getCorrectedTime() - cdTimeMs + abandonPenaltyMs
     }
 }

@@ -134,7 +134,11 @@ object RoomTypeNormal : RoomType {
             targetDiff = if (lv3count < 7) 26 + lv3count * 2 else min(40, 58 - lv3count * 2)
         }
         // generate another starArray
-        val spell2RankArray = SimilarBoardGenerator.findMatrixB(starArray, (targetDiff * room.roomConfig.diffLevel + 2) / 5)
+        val spell2RankArray: IntArray = if (room.roomConfig.diffLevel < 0) {
+            rollSpellsStarArray(room.roomConfig.difficulty)
+        } else {
+            SimilarBoardGenerator.findMatrixB(starArray, (targetDiff * room.roomConfig.diffLevel + 2) / 5)
+        }
         // reassign room.spells
         rollSpellCard(room, spell2RankArray)
         room.refreshManager2 = RefreshSpellManager()
