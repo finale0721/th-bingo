@@ -9,7 +9,8 @@ data class PlayerAction(
     val actionType: String,
     val spellIndex: Int,
     val spellName: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val scoreNow: List<Int>,
 )
 
 @Serializable

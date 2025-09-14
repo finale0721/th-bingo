@@ -27,6 +27,19 @@ class GameLogger {
         score[1] = right
     }
 
+    private fun getCurrentScore(room: Room): IntArray {
+        var left = 0
+        var right = 0
+        room.spellStatus!!.forEach {
+            if (it == SpellStatus.LEFT_GET) left++
+            else if (it == SpellStatus.RIGHT_GET) right++
+        }
+        val scoreNow = intArrayOf(0, 0)
+        scoreNow[0] = left
+        scoreNow[1] = right
+        return scoreNow
+    }
+
     private fun updateNormalData(room: Room) {
         if (room.normalData != null) {
             this.normalData = NormalData()
@@ -56,7 +69,8 @@ class GameLogger {
             actionType = actionType,
             spellIndex = spellIndex,
             spellName = spell.name,
-            timestamp = System.currentTimeMillis() - gameStartTimestamp
+            timestamp = System.currentTimeMillis() - gameStartTimestamp,
+            scoreNow = getCurrentScore(player.room!!).toList(),
         )
         actions.add(action)
         player.room?.let { updateScore(it) }
