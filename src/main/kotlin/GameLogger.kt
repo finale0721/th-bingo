@@ -15,6 +15,7 @@ class GameLogger {
     private var gameStartTimestamp: Long = 0
     private var players = arrayOf<String>("", "")
     private var score = intArrayOf(0, 0)
+    private var room: Room? = null
 
     private fun updateScore(room: Room) {
         var left = 0
@@ -53,6 +54,7 @@ class GameLogger {
 
     fun startLog(room: Room) {
         clear()
+        this.room = room
         this.roomConfig = room.roomConfig
         this.spells = room.spells
         this.spells2 = room.spells2
@@ -70,11 +72,11 @@ class GameLogger {
             spellIndex = spellIndex,
             spellName = spell.name,
             timestamp = System.currentTimeMillis() - gameStartTimestamp,
-            scoreNow = getCurrentScore(player.room!!).toList(),
+            scoreNow = getCurrentScore(room!!).toList(),
         )
         actions.add(action)
-        player.room?.let { updateScore(it) }
-        player.room?.let { updateNormalData(it) }
+        updateScore(room!!)
+        updateNormalData(room!!)
     }
 
     fun getSerializedLog(): String? {
