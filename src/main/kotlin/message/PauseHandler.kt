@@ -36,8 +36,8 @@ object PauseHandler : RequestHandler {
                 // 暂停结束后，要把所有人的上次收卡时间往后延暂停持续时间
                 for (i in room.lastGetTime.indices)
                     room.lastGetTime[i] += delta
+                room.aiAgent?.onGameResumed()
             }
-            room.aiAgent?.onGameResumed()
         }
         room.push("push_pause", JsonObject(mapOf("pause" to JsonPrimitive(pause))))
         // Log the update action
