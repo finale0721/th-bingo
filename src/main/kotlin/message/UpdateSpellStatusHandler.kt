@@ -33,7 +33,7 @@ object UpdateSpellStatusHandler : RequestHandler {
         // Log the update action
         room.gameLogger?.logAction(
             player = player,
-            actionType = "set-$spellStatus",
+            actionType = "set-${spellStatus.value}",
             spellIndex = idx,
             spell = room.spells!![idx]
         )

@@ -1,6 +1,5 @@
 package org.tfcc.bingo
 
-import kotlinx.serialization.json.Json
 import org.tfcc.bingo.message.GameLog
 import org.tfcc.bingo.message.NormalData
 import org.tfcc.bingo.message.PlayerAction
@@ -16,6 +15,7 @@ class GameLogger {
     private var players = arrayOf<String>("", "")
     private var score = intArrayOf(0, 0)
     private var room: Room? = null
+    private var initStatus: Array<Int>? = null
 
     private fun updateScore(room: Room) {
         var left = 0
@@ -61,6 +61,10 @@ class GameLogger {
         this.gameStartTimestamp = room.startMs
         this.players[0] = room.players[0]?.name ?: "PlayerA"
         this.players[1] = room.players[1]?.name ?: "PlayerB"
+        this.initStatus = Array(room.spells!!.size) { SpellStatus.NONE.value }
+        room.spellStatus!!.forEachIndexed { index, status ->
+            initStatus!![index] = status.value
+        }
     }
 
     fun logAction(player: Player, actionType: String, spellIndex: Int, spell: Spell) {
@@ -79,12 +83,12 @@ class GameLogger {
         updateNormalData(room!!)
     }
 
-    fun getSerializedLog(): String? {
+    fun getSerializedLog(): GameLog? {
         val config = roomConfig ?: return null
-        val spellList = spells!!.toList()
-        val spellList2 = spells2?.toList() ?: return null
+        val spellList = spells?.toList() ?: return null // 增加空安全检查
+        val spellList2 = spells2?.toList() // spellList2 本身就是可空的，不需要 return null
 
-        val log = GameLog(
+        return GameLog(
             roomConfig = config,
             players = players.toList(),
             spells = spellList,
@@ -93,9 +97,8 @@ class GameLogger {
             actions = actions.toList(),
             gameStartTimestamp = this.gameStartTimestamp,
             score = this.score.toList(),
+            initStatus = initStatus!!.toList()
         )
-        // Use a Json configuration that ignores unknown keys for robustness
-        return Json.encodeToString(log)
     }
 
     fun clear() {
@@ -107,5 +110,6 @@ class GameLogger {
         gameStartTimestamp = 0
         players.fill("")
         score = intArrayOf(0, 0)
+        initStatus = null
     }
 }

@@ -22,5 +22,6 @@ data class GameLog(
     val normalData: NormalData?,
     val actions: List<PlayerAction>,
     val gameStartTimestamp: Long,
-    val score: List<Int>
+    val score: List<Int>,
+    val initStatus: List<Int>,
 )
