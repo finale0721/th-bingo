@@ -16,7 +16,6 @@ import java.util.concurrent.TimeUnit
 import kotlin.collections.HashMap
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.math.sqrt
 import kotlin.random.Random
 
 object SpellConfig {
@@ -34,19 +33,38 @@ object SpellConfig {
     // 各作品的默认权重？
     val weightDict: HashMap<String, Float> = HashMap()
 
-    fun setWeightDict(weightDict: HashMap<String, Float>) {
-        this.weightDict.clear()
-        this.weightDict.putAll(weightDict)
+    private fun calProb(configLevel: Int): Float {
+        return when (configLevel) {
+            -2 -> 0.1f
+            -1 -> 0.5f
+            0 -> 1.0f
+            1 -> 2.0f
+            2 -> 10.0f
+            else -> 1.0f
+        }
     }
 
-    fun fixWeightVar(w: Float) {
-        if (w > 1.01f) {
-            this.weightVar = min((w - 1.01f) * 0.2f + 1.01f, 1.85f)
-        } else if (w < 0.99f) {
-            this.weightVar = sqrt(max(w, 0.1f).toDouble()).toFloat()
-        } else {
-            this.weightVar = 1.0f
+    private fun calWeightVar(configLevel: Int): Float {
+        return when (configLevel) {
+            -2 -> 0.2f
+            -1 -> 0.5f
+            0 -> 1.0f
+            1 -> 1.35f
+            2 -> 1.85f
+            else -> 1.0f
         }
+    }
+
+    fun setWeightDict(weightDict: HashMap<String, Int>) {
+        this.weightDict.clear()
+        weightDict.forEach { (k, v) ->
+            if (k != "weight_balancer")
+                this.weightDict[k] = calProb(v)
+        }
+    }
+
+    fun fixWeightVar(configLevel: Int) {
+        weightVar = calWeightVar(configLevel)
     }
 
     fun defaultWeightMap(games: Set<String>): HashMap<String, Float> {

@@ -8,8 +8,7 @@ sealed interface RoomType {
 
     @Throws(HandlerException::class)
     fun rollSpellCard(room: Room, stars: IntArray? = null) {
-        SpellConfig.fixWeightVar(room.roomConfig.gameWeight.get("weight_balancer") ?: 1f)
-        room.roomConfig.gameWeight.remove("weight_balancer")
+        SpellConfig.fixWeightVar(room.roomConfig.gameWeight.get("weight_balancer") ?: 0)
         SpellConfig.setWeightDict(room.roomConfig.gameWeight)
         val start = System.currentTimeMillis()
         var retryCount = 0

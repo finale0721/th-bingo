@@ -347,7 +347,7 @@ class AIAgent(private val room: Room) {
             val prefLevel = room.roomConfig.aiPreference[spell.game] ?: 0
             // 基于等级与作品偏向性计算AI的底力与熟练度
             val aiPower = room.roomConfig.aiBasePower + 5f
-            val aief = prefLevel * if(prefLevel > 0) 3.5f else 4.5f
+            val aief = prefLevel * if (prefLevel > 0) 3.5f else 4.5f
             val aiExp = max(room.roomConfig.aiExperience + 5f + aief, 0.0f)
             // 每张卡的底力与熟练度权重。二者和一定为1
             val spellPowerWeight = min(.95f, max(.05f, spell.powerWeight))
@@ -363,7 +363,7 @@ class AIAgent(private val room: Room) {
                     randFloat2 * max(6f - aiExp / 4f, 0f)
             }
             // 计算基础收率
-            var baseCapRate = spell.maxCapRate + if(prefLevel > 0) (1f-spell.maxCapRate) * 0.33f * prefLevel else 0f
+            var baseCapRate = spell.maxCapRate + if (prefLevel > 0) (1f - spell.maxCapRate) * 0.33f * prefLevel else 0f
             // 底力不足会严重影响收卡效率，所以给一个额外的惩罚。
             baseCapRate *= exp(-spell.difficulty / 16f * max(spellPowerWeight * spell.difficulty - aiPower, 0f))
             // 熟练度太低也会影响收卡效率。影响较小。达到16不再影响。同时根据难度来给一个固有的收率降低（max 10%）。
