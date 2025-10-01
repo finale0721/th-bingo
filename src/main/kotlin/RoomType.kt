@@ -2,12 +2,16 @@ package org.tfcc.bingo
 
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.message.HandlerException
+import org.tfcc.bingo.message.RoomConfig
 
 sealed interface RoomType {
     val name: String
 
     @Throws(HandlerException::class)
     fun rollSpellCard(room: Room, stars: IntArray? = null) {
+        SpellConfig.fixWeightVar(room.roomConfig.gameWeight.get("weight_balancer") ?: 1f)
+        room.roomConfig.gameWeight.remove("weight_balancer")
+        SpellConfig.setWeightDict(room.roomConfig.gameWeight)
         val start = System.currentTimeMillis()
         var retryCount = 0
         while (true) {

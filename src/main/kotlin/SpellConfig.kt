@@ -14,6 +14,9 @@ import java.io.InputStreamReader
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.collections.HashMap
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 object SpellConfig {
@@ -24,6 +27,32 @@ object SpellConfig {
     const val BP_GAME = 2
 
     private var rollSpellLeftCache = HashMap<Boolean, HashMap<Int, LinkedList<Spell>>>()
+
+    //每次抽取后，权重的变化率？
+    var weightVar = 1.0f
+    //各作品的默认权重？
+    val weightDict: HashMap<String, Float> = HashMap()
+
+    fun setWeightDict(weightDict: HashMap<String, Float>) {
+        this.weightDict.clear()
+        this.weightDict.putAll(weightDict)
+    }
+
+    fun fixWeightVar(w: Float) {
+        if(w > 1.01f) {
+            this.weightVar = min((w - 1.01f) * 0.15f + 1.01f, 1.75f)
+        }else if(w < 0.99f){
+            this.weightVar = sqrt(max(w, 0.1f).toDouble()).toFloat()
+        }else{
+            this.weightVar = 1.0f
+        }
+    }
+
+    fun defaultWeightMap(games: Set<String>): HashMap<String, Float> {
+        return HashMap<String, Float>().apply {
+            games.forEach { put(it, 1.0f) }
+        }
+    }
 
     fun getSpellLeftCache(): HashMap<Boolean, HashMap<Int, LinkedList<Spell>>> {
         return rollSpellLeftCache
@@ -50,6 +79,92 @@ object SpellConfig {
         }
         // 将整理好的剩余符卡赋值给 SpellConfig 的成员变量
         rollSpellLeftCache = remainingSpellsTemp
+    }
+
+    /**
+     * 加权随机选择游戏
+     * @param gameMap 游戏映射表
+     * @param weightMap 权重映射表
+     * @param rand 随机数生成器
+     * @return 选择的游戏名称，如果游戏映射表为空则返回null
+     */
+    private fun weightedRandomGame(
+        gameMap: HashMap<String, LinkedList<Spell>>,
+        weightMap: HashMap<String, Float>,
+        rand: Random
+    ): String? {
+        if (gameMap.isEmpty()) return null
+
+        // 计算总权重
+        val totalWeight = weightMap.entries
+            .filter { it.key in gameMap.keys } // 只考虑当前可用的游戏
+            .sumOf { it.value.toDouble() }
+
+        if (totalWeight <= 0.0) {
+            // 如果总权重为0或负数，使用均匀随机
+            return gameMap.keys.randomOrNull(rand)
+        }
+
+        // 生成随机数
+        val randomValue = max(min(rand.nextDouble() * totalWeight, 10000.0), 0.0001)
+        var currentWeight = 0.0
+
+        // 根据权重选择游戏
+        for ((game, weight) in weightMap) {
+            if (game !in gameMap.keys) continue
+            currentWeight += weight.toDouble()
+            if (randomValue <= currentWeight) {
+                return game
+            }
+        }
+
+        // 如果由于浮点精度问题没有选中，返回最后一个游戏
+        return weightMap.keys.lastOrNull { it in gameMap.keys }
+    }
+
+    /**
+     * 从游戏映射表中抽取符卡（加权随机版本）
+     * @param gameMap 游戏映射表
+     * @param weightMap 权重映射表
+     * @param spellIds 已抽取的符卡ID集合（用于去重）
+     * @param rand 随机数生成器
+     * @return 抽取的符卡，如果无法抽取则返回null
+     */
+    private fun drawSpellWithWeight(
+        gameMap: HashMap<String, LinkedList<Spell>>,
+        weightMaps: HashMap<Int, HashMap<String, Float>>,
+        spellIds: HashSet<String>,
+        rand: Random,
+        star: Int,
+    ): Spell? {
+        var spell: Spell? = null
+        var selectedGame: String? = null
+        val weightMap = weightMaps.get(star) ?: defaultWeightMap(gameMap.keys)
+
+        do {
+            selectedGame = weightedRandomGame(gameMap, weightMap, rand) ?: return null
+            val spellList = gameMap[selectedGame] ?: continue
+
+            if (spellList.isEmpty()) {
+                gameMap.remove(selectedGame)
+                weightMap.remove(selectedGame)
+                continue
+            }
+
+            spell = spellList.removeFirst()
+            if (spellList.isEmpty()) {
+                gameMap.remove(selectedGame)
+                weightMap.remove(selectedGame)
+            }
+        } while (!spellIds.add("${spell!!.game}-${spell.id}"))
+
+        for(wm in weightMaps.values) {
+            if(wm.containsKey(selectedGame)){
+                wm[selectedGame] = wm[selectedGame]!!.times(weightVar)
+            }
+        }
+
+        return spell
     }
 
     /**
@@ -85,18 +200,30 @@ object SpellConfig {
             if (isExMap2.isNotEmpty()) map[star] = isExMap2
         }
         val spellIds = HashSet<String>()
-        val result = Array(stars.size) {
-            val isExMap = map[stars[it]] ?: throw HandlerException("${stars[it]}星符卡数量不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${stars[it]}星符卡数量不足")
-            var spell: Spell
-            do {
-                val game = gameMap.keys.randomOrNull(rand) ?: throw HandlerException("${stars[it]}星符卡数量不足")
-                val spellList = gameMap[game]!!
-                spell = spellList.removeFirst()
-                if (spellList.isEmpty()) gameMap.remove(game)
-            } while (!spellIds.add("${spell.game}-${spell.id}"))
+
+        // 创建权重字典的副本
+        val weightMaps = HashMap<Int, HashMap<String, Float>>()
+        for (i in 1..6) {
+            weightMaps[i] = HashMap(weightDict).apply {
+                // 只保留当前可用的游戏的权重
+                keys.retainAll { game ->
+                    map.values.any { isExMap ->
+                        isExMap.values.any { gameMap -> game in gameMap.keys }
+                    }
+                }
+            }
+        }
+
+        val result = Array(stars.size) { index ->
+            val star = stars[index]
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
+
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
             spell
         }
+
         for (i in exPos.indices) {
             var index = exPos[i]
             var firstTry = true
@@ -110,13 +237,10 @@ object SpellConfig {
                 }
                 val isExMap = map[stars[index]] ?: continue
                 val gameMap = isExMap[true] ?: continue
-                var spell: Spell
-                do {
-                    val game = gameMap.keys.randomOrNull(rand) ?: continue@tryOnce
-                    val spellList = gameMap[game]!!
-                    spell = spellList.removeFirst()
-                    if (spellList.isEmpty()) gameMap.remove(game)
-                } while (!spellIds.add("${spell.game}-${spell.id}"))
+
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 6)
+                    ?: continue@tryOnce
+
                 exPos[i] = index
                 result[index] = spell
                 break
@@ -159,21 +283,29 @@ object SpellConfig {
         val spellIds = HashSet<String>()
         val result = arrayOfNulls<Spell>(stars.size)
 
+        // 创建权重字典的副本
+        val weightMaps = HashMap<Int, HashMap<String, Float>>()
+        for (i in 1..6) {
+            weightMaps[i] = HashMap(weightDict).apply {
+                // 只保留当前可用的游戏的权重
+                keys.retainAll { game ->
+                    map.values.any { isExMap ->
+                        isExMap.values.any { gameMap -> game in gameMap.keys }
+                    }
+                }
+            }
+        }
+
         // 原有的4/5级卡抽取逻辑保留，保证基础的分布
         for (i in stars.indices) {
-            val requireStar = stars[i]
-            if (requireStar !in 4..5) continue
+            val star = stars[i]
+            if (star !in 4..5) continue
 
-            val isExMap = map[requireStar] ?: throw HandlerException("${requireStar}星符卡不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${requireStar}星符卡不足")
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
 
-            var spell: Spell
-            do {
-                val game = gameMap.keys.randomOrNull(rand) ?: throw HandlerException("${requireStar}星符卡不足")
-                val spellList = gameMap[game]!!
-                spell = spellList.removeFirst()
-                if (spellList.isEmpty()) gameMap.remove(game)
-            } while (!spellIds.add("${spell.game}-${spell.id}"))
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
 
             result[i] = spell
         }
@@ -186,18 +318,7 @@ object SpellConfig {
                 val isExMap = map[5] ?: continue
                 val gameMap = isExMap[false] ?: continue
 
-                var spell: Spell? = null
-                retry@ while (true) {
-                    val game = gameMap.keys.randomOrNull(rand) ?: break@retry
-                    val spellList = gameMap[game] ?: continue
-                    if (spellList.isEmpty()) {
-                        gameMap.remove(game)
-                        continue
-                    }
-                    spell = spellList.removeFirst()
-                    if (spellList.isEmpty()) gameMap.remove(game)
-                    if (spellIds.add("${spell.game}-${spell.id}")) break@retry
-                }
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 5)
 
                 spell?.let {
                     result[i] = it
@@ -217,18 +338,7 @@ object SpellConfig {
                 val isExMap = map[4] ?: continue
                 val gameMap = isExMap[false] ?: continue
 
-                var spell: Spell? = null
-                retry@ while (true) {
-                    val game = gameMap.keys.randomOrNull(rand) ?: break@retry
-                    val spellList = gameMap[game] ?: continue
-                    if (spellList.isEmpty()) {
-                        gameMap.remove(game)
-                        continue
-                    }
-                    spell = spellList.removeFirst()
-                    if (spellList.isEmpty()) gameMap.remove(game)
-                    if (spellIds.add("${spell.game}-${spell.id}")) break@retry
-                }
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 4)
 
                 spell?.let {
                     result[i] = it
@@ -244,17 +354,12 @@ object SpellConfig {
         for (i in stars.indices) {
             if (result[i] != null) continue
 
-            val requireStar = stars[i]
-            val isExMap = map[requireStar] ?: throw HandlerException("${requireStar}星符卡不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${requireStar}星符卡不足")
+            val star = stars[i]
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
 
-            var spell: Spell
-            do {
-                val game = gameMap.keys.randomOrNull(rand) ?: throw HandlerException("${requireStar}星符卡不足")
-                val spellList = gameMap[game]!!
-                spell = spellList.removeFirst()
-                if (spellList.isEmpty()) gameMap.remove(game)
-            } while (!spellIds.add("${spell.game}-${spell.id}"))
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
 
             result[i] = spell
         }
@@ -272,13 +377,10 @@ object SpellConfig {
                 }
                 val isExMap = map[stars[index]] ?: continue
                 val gameMap = isExMap[true] ?: continue
-                var spell: Spell
-                do {
-                    val game = gameMap.keys.randomOrNull(rand) ?: continue@tryOnce
-                    val spellList = gameMap[game]!!
-                    spell = spellList.removeFirst()
-                    if (spellList.isEmpty()) gameMap.remove(game)
-                } while (!spellIds.add("${spell.game}-${spell.id}"))
+
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 6)
+                    ?: continue@tryOnce
+
                 exPos[i] = index
                 result[index] = spell
                 break
@@ -321,45 +423,42 @@ object SpellConfig {
         val spellIds = HashSet<String>()
         val result = arrayOfNulls<Spell>(stars.size)
 
-        // 原有的3星卡抽取逻辑保留，保证基础的分布
+        // 创建权重字典的副本
+        val weightMaps = HashMap<Int, HashMap<String, Float>>()
+        for (i in 1..4) {
+            weightMaps[i] = HashMap(weightDict).apply {
+                // 只保留当前可用的游戏的权重
+                keys.retainAll { game ->
+                    map.values.any { isExMap ->
+                        isExMap.values.any { gameMap -> game in gameMap.keys }
+                    }
+                }
+            }
+        }
+
+        // 原有的3级卡抽取逻辑保留，保证基础的分布
         for (i in stars.indices) {
-            val requireStar = stars[i]
-            if (requireStar != 3) continue
+            val star = stars[i]
+            if (star != 3) continue
 
-            val isExMap = map[requireStar] ?: throw HandlerException("${requireStar}星符卡不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${requireStar}星符卡不足")
+            val isExMap = map[3] ?: throw HandlerException("${3}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${3}星符卡数量不足")
 
-            var spell: Spell
-            do {
-                val game = gameMap.keys.randomOrNull(rand) ?: throw HandlerException("${requireStar}星符卡不足")
-                val spellList = gameMap[game]!!
-                spell = spellList.removeFirst()
-                if (spellList.isEmpty()) gameMap.remove(game)
-            } while (!spellIds.add("${spell.game}-${spell.id}"))
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 3)
+                ?: throw HandlerException("${star}星符卡数量不足")
 
             result[i] = spell
         }
 
-        // 3星卡替换
-        val star13Indices = stars.indices.filter { stars[it] == 13 }.toMutableList()
-        star13Indices.shuffle(rand) // 替换项洗牌，保证卡不足时分布均匀
-        for (i in star13Indices) {
+        // 3级卡替换，若3级卡数量不足，将其替换为待替换的2级。
+        val star3pIndices = stars.indices.filter { stars[it] == 13 }.toMutableList()
+        star3pIndices.shuffle(rand) // 替换项洗牌，保证卡不足时分布均匀
+        for (i in star3pIndices) {
             try {
                 val isExMap = map[3] ?: continue
                 val gameMap = isExMap[false] ?: continue
 
-                var spell: Spell? = null
-                retry@ while (true) {
-                    val game = gameMap.keys.randomOrNull(rand) ?: break@retry
-                    val spellList = gameMap[game] ?: continue
-                    if (spellList.isEmpty()) {
-                        gameMap.remove(game)
-                        continue
-                    }
-                    spell = spellList.removeFirst()
-                    if (spellList.isEmpty()) gameMap.remove(game)
-                    if (spellIds.add("${spell.game}-${spell.id}")) break@retry
-                }
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 3)
 
                 spell?.let {
                     result[i] = it
@@ -371,21 +470,16 @@ object SpellConfig {
             }
         }
 
-        // 1-2星卡生成
+        // 1-2级卡生成
         for (i in stars.indices) {
             if (result[i] != null) continue
 
-            val requireStar = stars[i]
-            val isExMap = map[requireStar] ?: throw HandlerException("${requireStar}星符卡不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${requireStar}星符卡不足")
+            val star = stars[i]
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
 
-            var spell: Spell
-            do {
-                val game = gameMap.keys.randomOrNull(rand) ?: throw HandlerException("${requireStar}星符卡不足")
-                val spellList = gameMap[game]!!
-                spell = spellList.removeFirst()
-                if (spellList.isEmpty()) gameMap.remove(game)
-            } while (!spellIds.add("${spell.game}-${spell.id}"))
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
 
             result[i] = spell
         }
@@ -403,13 +497,10 @@ object SpellConfig {
                 }
                 val isExMap = map[stars[index]] ?: continue
                 val gameMap = isExMap[true] ?: continue
-                var spell: Spell
-                do {
-                    val game = gameMap.keys.randomOrNull(rand) ?: continue@tryOnce
-                    val spellList = gameMap[game]!!
-                    spell = spellList.removeFirst()
-                    if (spellList.isEmpty()) gameMap.remove(game)
-                } while (!spellIds.add("${spell.game}-${spell.id}"))
+
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 4)
+                    ?: continue@tryOnce
+
                 exPos[i] = index
                 result[index] = spell
                 break

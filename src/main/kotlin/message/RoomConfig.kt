@@ -62,6 +62,9 @@ class RoomConfig(
     /** AI熟练度 */
     @SerialName("ai_experience")
     val aiExperience: Int,
+    /** 游戏权重 */
+    @SerialName("game_weight")
+    val gameWeight: HashMap<String, Float>,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -83,6 +86,7 @@ class RoomConfig(
         aiStyle in 0..2 || throw HandlerException("AI决策风格设置范围应为0~2")
         aiBasePower in 1..10 || throw HandlerException("AI底力设置范围应为1~10")
         aiExperience in 1..10 || throw HandlerException("AI熟练度设置范围应为1~10")
+        gameWeight.values.all { it >= 0 } || throw HandlerException("游戏权重不能为负数")
     }
 
     operator fun plus(config: RoomConfigNullable): RoomConfig {
@@ -108,6 +112,7 @@ class RoomConfig(
             aiStyle = config.aiStyle ?: aiStyle,
             aiBasePower = config.aiBasePower ?: aiBasePower,
             aiExperience = config.aiExperience ?: aiExperience,
+            gameWeight = config.gameWeight ?: gameWeight,
         )
     }
 }
@@ -171,6 +176,9 @@ class RoomConfigNullable(
     /** AI熟练度 */
     @SerialName("ai_experience")
     val aiExperience: Int? = null,
+    /** 游戏权重 */
+    @SerialName("game_weight")
+    val gameWeight: HashMap<String, Float>? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -192,5 +200,6 @@ class RoomConfigNullable(
         aiStyle == null || aiStyle in 0..2 || throw HandlerException("AI决策风格设置范围应为0~2")
         aiBasePower == null || aiBasePower in 1..10 || throw HandlerException("AI底力设置范围应为1~10")
         aiExperience == null || aiExperience in 1..10 || throw HandlerException("AI熟练度设置范围应为1~10")
+        gameWeight == null || gameWeight.values.all { it >= 0 } || throw HandlerException("游戏权重不能为负数")
     }
 }
