@@ -41,7 +41,7 @@ object SpellConfig {
 
     fun fixWeightVar(w: Float) {
         if (w > 1.01f) {
-            this.weightVar = min((w - 1.01f) * 0.15f + 1.01f, 1.75f)
+            this.weightVar = min((w - 1.01f) * 0.2f + 1.01f, 1.85f)
         } else if (w < 0.99f) {
             this.weightVar = sqrt(max(w, 0.1f).toDouble()).toFloat()
         } else {
