@@ -2,7 +2,6 @@ package org.tfcc.bingo
 
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.message.HandlerException
-import org.tfcc.bingo.message.RoomConfig
 
 sealed interface RoomType {
     val name: String

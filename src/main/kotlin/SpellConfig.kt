@@ -28,9 +28,10 @@ object SpellConfig {
 
     private var rollSpellLeftCache = HashMap<Boolean, HashMap<Int, LinkedList<Spell>>>()
 
-    //每次抽取后，权重的变化率？
+    // 每次抽取后，权重的变化率？
     var weightVar = 1.0f
-    //各作品的默认权重？
+
+    // 各作品的默认权重？
     val weightDict: HashMap<String, Float> = HashMap()
 
     fun setWeightDict(weightDict: HashMap<String, Float>) {
@@ -39,11 +40,11 @@ object SpellConfig {
     }
 
     fun fixWeightVar(w: Float) {
-        if(w > 1.01f) {
+        if (w > 1.01f) {
             this.weightVar = min((w - 1.01f) * 0.15f + 1.01f, 1.75f)
-        }else if(w < 0.99f){
+        } else if (w < 0.99f) {
             this.weightVar = sqrt(max(w, 0.1f).toDouble()).toFloat()
-        }else{
+        } else {
             this.weightVar = 1.0f
         }
     }
@@ -158,8 +159,8 @@ object SpellConfig {
             }
         } while (!spellIds.add("${spell!!.game}-${spell.id}"))
 
-        for(wm in weightMaps.values) {
-            if(wm.containsKey(selectedGame)){
+        for (wm in weightMaps.values) {
+            if (wm.containsKey(selectedGame)) {
                 wm[selectedGame] = wm[selectedGame]!!.times(weightVar)
             }
         }

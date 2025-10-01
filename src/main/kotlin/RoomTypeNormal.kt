@@ -149,7 +149,7 @@ object RoomTypeNormal : RoomType {
         val outerRingIndex = arrayOf(0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
         val innerRingIndex = arrayOf(6, 7, 8, 11, 12, 13, 16, 17, 18)
         val innerCount = room.roomConfig.portalCount * 9 / 25
-        val icp = if((rand.nextInt(0, 65536) / 65536.0f)
+        val icp = if ((rand.nextInt(0, 65536) / 65536.0f)
             < (room.roomConfig.portalCount * 9.0f / 25.0f - innerCount)) 1 else 0
         val outerCount = room.roomConfig.portalCount - innerCount - icp
 
