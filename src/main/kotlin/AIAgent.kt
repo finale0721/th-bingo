@@ -353,13 +353,13 @@ class AIAgent(private val room: Room) {
             val spellPowerWeight = min(.95f, max(.05f, spell.powerWeight))
             val spellExpWeight = 1f - spellPowerWeight
             // 时间太长的卡认为时间波动忽略不计（多半为时符，或者速攻差异小）。只加上开游戏的时间
-            val randFloat1 = Random.nextFloat()
-            val randFloat2 = Random.nextFloat()
+            val randFloat1 = (Random.nextFloat() + Random.nextFloat()) / 2f
+            val randFloat2 = (Random.nextFloat() + Random.nextFloat()) / 2f
             if (spell.fastest > 60.0f) {
-                model.calculatedAI = spell.fastest + 3f + 1f * randFloat1
+                model.calculatedAI = spell.fastest + 3.5f + 3f * randFloat1
             } else {
-                // 否则，基于熟练度给一个较小的随机时间惩罚（形状不好，最多+20%）、并额外进行熟练度惩罚。
-                model.calculatedAI = spell.fastest + 3f + randFloat1 * spell.fastest * .2f +
+                // 否则，给一个较小的随机时间惩罚（形状不好，最多+25%）、并额外进行熟练度惩罚。
+                model.calculatedAI = spell.fastest + 3.5f + randFloat1 * spell.fastest * .25f +
                     randFloat2 * max(6f - aiExp / 4f, 0f)
             }
             // 计算基础收率
@@ -375,8 +375,8 @@ class AIAgent(private val room: Room) {
                 ))
             // 给收率一个界限
             model.calculatedPI = min(.999f, max(finalRate, .001f))
-            // 计算失败的耗时。若成功率低说明撞的很可能靠前一点，稍微缩短平均失败时间。重开游戏另加1.5秒。
-            model.penalty = 1.5f + spell.missTime * min(.9f + finalRate * .2f, 1.05f)
+            // 计算失败的耗时。重开游戏另加1.5秒。
+            model.penalty = 1.5f + spell.missTime
 
             // 期望时间=A+F*(1-P)/P
             model.expectedTime = model.calculatedAI + model.penalty * (1f - model.calculatedPI) / model.calculatedPI
