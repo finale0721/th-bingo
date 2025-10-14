@@ -178,10 +178,12 @@ object RoomTypeNormal : RoomType {
 
     @Throws(HandlerException::class)
     override fun randSpells(spellCardVersion: Int, games: Array<String>, ranks: Array<String>, difficulty: Int?): Array<Spell> {
-        if (difficulty == 4)
-            return SpellFactory.randSpellsOD(
-                spellCardVersion, games, ranks
-            )
+        difficulty?.let {
+            if (it >= 4)
+                return SpellFactory.randSpellsOD(
+                    spellCardVersion, games, ranks, difficulty
+                )
+        }
         return SpellFactory.randSpells(
             spellCardVersion, games, ranks, when (difficulty) {
                 1 -> Difficulty.E
@@ -193,8 +195,10 @@ object RoomTypeNormal : RoomType {
     }
 
     override fun rollSpellsStarArray(difficulty: Int?): IntArray {
-        if (difficulty == 4)
-            return SpellFactory.randSpellsODStarArray()
+        difficulty?.let {
+            if (it >= 4)
+                return SpellFactory.randSpellsODStarArray(difficulty)
+        }
         return SpellFactory.randSpellsStarArray(
             when (difficulty) {
                 1 -> Difficulty.E
@@ -215,10 +219,12 @@ object RoomTypeNormal : RoomType {
         if (stars == null) {
             return randSpells(spellCardVersion, games, ranks, difficulty)
         }
-        if (difficulty == 4)
-            return SpellFactory.randSpellsODWithStar(
-                spellCardVersion, games, ranks, stars
-            )
+        difficulty?.let {
+            if (it >= 4)
+                return SpellFactory.randSpellsODWithStar(
+                    spellCardVersion, games, ranks, stars
+                )
+        }
         return SpellFactory.randSpellsWithStar(
             spellCardVersion, games, ranks, stars
         )

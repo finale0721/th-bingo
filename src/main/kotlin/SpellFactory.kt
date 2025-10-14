@@ -29,11 +29,15 @@ object SpellFactory {
      * 随符卡，用于BP赛OD
      */
     @Throws(HandlerException::class)
-    fun randSpellsBPOD(spellCardVersion: Int, games: Array<String>, ranks: Array<String>?, lv1Count: Int): Array<Spell> {
-        val lv2Count = 15 - lv1Count
+    fun randSpellsBPOD(spellCardVersion: Int, games: Array<String>, ranks: Array<String>?, difficulty: Int): Array<Spell> {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val idx = intArrayOf(0, 1, 3, 4)
-        val star12 = IntArray(lv1Count) { 1 } + IntArray(lv2Count) { 2 } + IntArray(5) { 13 }
+        val da = when (difficulty) {
+            4 -> Difficulty.ODBP.value
+            5 -> Difficulty.ODPBP.value
+            else -> Difficulty.LBPDefault.value
+        }
+        val star12 = IntArray(da[0]) { 1 } + IntArray(da[1]) { 2 } + IntArray(da[3]) { 13 }
         idx.shuffle(rand)
         star12.shuffle(rand)
         var j = 0
@@ -93,20 +97,22 @@ object SpellFactory {
      *
      */
     @Throws(HandlerException::class)
-    fun randSpellsOD(spellCardVersion: Int, games: Array<String>, ranks: Array<String>?): Array<Spell> {
-        val starArray = randSpellsODStarArray()
+    fun randSpellsOD(spellCardVersion: Int, games: Array<String>, ranks: Array<String>?, difficulty: Int): Array<Spell> {
+        val starArray = randSpellsODStarArray(difficulty)
         return randSpellsODWithStar(spellCardVersion, games, ranks, starArray)
     }
 
     @Throws(HandlerException::class)
-    fun randSpellsODStarArray(): IntArray {
-        // 6=四级替换 7=五级替换
-        // (1,4,8,9,3)
-        val lvCount = arrayOf(1, 4, 8, 5, 2)
+    fun randSpellsODStarArray(difficulty: Int): IntArray {
+        val da = when (difficulty) {
+            4 -> Difficulty.OD.value
+            5 -> Difficulty.ODP.value
+            else -> Difficulty.LDefault.value
+        }
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val idx = intArrayOf(0, 1, 3, 4)
-        val star12367 = IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 } +
-            IntArray(lvCount[3]) { 6 } + IntArray(lvCount[4]) { 7 }
+        val star12367 = IntArray(da[0]) { 1 } + IntArray(da[1]) { 2 } + IntArray(da[2]) { 3 } +
+            IntArray(da[5]) { 6 } + IntArray(da[6]) { 7 }
         val star45 = arrayOf(4, 4, 4, 4, 5)
         idx.shuffle(rand)
         star45.shuffle(rand)

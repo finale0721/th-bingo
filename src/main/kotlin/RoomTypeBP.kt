@@ -74,8 +74,10 @@ object RoomTypeBP : RoomType {
 
     @Throws(HandlerException::class)
     override fun randSpells(spellCardVersion: Int, games: Array<String>, ranks: Array<String>, difficulty: Int?): Array<Spell> {
-        if (difficulty == 4) {
-            return SpellFactory.randSpellsBPOD(spellCardVersion, games, ranks, 3)
+        difficulty?.let {
+            if (it >= 4) {
+                return SpellFactory.randSpellsBPOD(spellCardVersion, games, ranks, difficulty)
+            }
         }
         return SpellFactory.randSpellsBP(
             spellCardVersion, games, ranks, when (difficulty) {

@@ -58,7 +58,7 @@ class AIAgent(private val room: Room) {
 
     /** 动态记录和评估对手的画像。 */
     private data class OpponentProfile(
-        var avgEfficiency: Double = 1.0, // 对手效率指数，初始假设为1.0
+        var avgEfficiency: Double = 0.66, // 对手效率指数
         var lastSelectionTimeMs: Long = 0,
         var lastSelectedIndex: Int = -1
     )
@@ -82,7 +82,7 @@ class AIAgent(private val room: Room) {
 
     // --- 决策常量 ---
     /** 防守价值的基础权重。 */
-    private val defenseWeight = 1.2
+    private val defenseWeight = 1.25
 
     /** 在争夺中，AI需要比对手快多少才认为有把握（80%）。 */
     private val safetyMarginDefault = 0.8
@@ -92,6 +92,11 @@ class AIAgent(private val room: Room) {
 
     /** 在信息不确定的情况下，对预测冲突的格子的价值应用的惩罚系数。 */
     private val uncertainPenaltyFactor = 0.7
+
+    // 形成X连的固定奖励
+    private val line2Bonus = 3.0
+    private val line3Bonus = 9.0
+    private val line4Bonus = 12.0
 
     /** 棋盘上所有12条有效的胜利线路。 */
     private val boardLines = listOf(
@@ -163,12 +168,12 @@ class AIAgent(private val room: Room) {
     fun onOpponentFinishedCell(spellIndex: Int) {
         if (opponentProfile.lastSelectedIndex == spellIndex && opponentProfile.lastSelectionTimeMs > 0) {
             val timeTaken = getCorrectedTime() - opponentProfile.lastSelectionTimeMs
-            val idealTime = room.spells?.get(spellIndex)?.fastest?.times(1000) ?: timeTaken.toFloat()
+            val idealTime = room.spells!![spellIndex].fastest.times(1000)
             if (timeTaken > 0) {
                 val efficiency = min(1.5f, idealTime / timeTaken)
                 val oldEfficiency = opponentProfile.avgEfficiency
                 // 使用移动平均法平滑更新效率指数
-                opponentProfile.avgEfficiency = (0.9 * opponentProfile.avgEfficiency) + (0.1 * efficiency)
+                opponentProfile.avgEfficiency = (0.8 * opponentProfile.avgEfficiency) + (0.2 * efficiency)
                 logger.debug(
                     "Opponent finished cell $spellIndex. Time: ${timeTaken}ms. " +
                         "Efficiency updated from $oldEfficiency to ${opponentProfile.avgEfficiency}"
@@ -347,7 +352,7 @@ class AIAgent(private val room: Room) {
             val prefLevel = room.roomConfig.aiPreference[spell.game] ?: 0
             // 基于等级与作品偏向性计算AI的底力与熟练度
             val aiPower = room.roomConfig.aiBasePower + 5f
-            val aief = prefLevel * if (prefLevel > 0) 3.5f else 4.5f
+            val aief = prefLevel * if (prefLevel > 0) 3f else 4f
             val aiExp = max(room.roomConfig.aiExperience + 5f + aief, 0.0f)
             // 每张卡的底力与熟练度权重。二者和一定为1
             val spellPowerWeight = min(.95f, max(.05f, spell.powerWeight))
@@ -358,16 +363,30 @@ class AIAgent(private val room: Room) {
             if (spell.fastest > 60.0f) {
                 model.calculatedAI = spell.fastest + 3.5f + 3f * randFloat1
             } else {
-                // 否则，给一个较小的随机时间惩罚（形状不好，最多+25%）、并额外进行熟练度惩罚。
+                // 否则，给一个较小的随机时间惩罚（形状不好，最多+25%）、并额外 进行熟练度惩罚。
                 model.calculatedAI = spell.fastest + 3.5f + randFloat1 * spell.fastest * .25f +
                     randFloat2 * max(6f - aiExp / 4f, 0f)
             }
             // 计算基础收率
             var baseCapRate = spell.maxCapRate + if (prefLevel > 0) (1f - spell.maxCapRate) * 0.33f * prefLevel else 0f
-            // 底力不足会严重影响收卡效率，所以给一个额外的惩罚。
-            baseCapRate *= exp(-spell.difficulty / 16f * max(spellPowerWeight * spell.difficulty - aiPower, 0f))
-            // 熟练度太低也会影响收卡效率。影响较小。达到16不再影响。同时根据难度来给一个固有的收率降低（max 10%）。
-            baseCapRate *= .9f - spell.difficulty / 160f + min(.1f, aiExp / 160f)
+            // 底力不足会严重影响收卡效率
+            // 我们认为，如果底力与目标值的差异大于2.5，就视为底力不足
+            baseCapRate *= exp(-0.5f * max((spell.difficulty - aiPower) * spellPowerWeight - 2.5f, 0f))
+            // 我们如此定义：熟练度影响能力的最终发挥表现
+            // 熟练度达到最高时，收率可以100%发挥
+            // 熟练度最低时，收率只能发挥较少一部分
+            // 这个斜率受符卡对熟练度的要求影响。要求由两部分计算得到
+            // 第一，底力系数越低，要求越高
+            // 第二，对于较难的卡，难度越高，要求越高
+            val req = min(
+                (1f - spellPowerWeight) * 10f + max(min((spell.difficulty - 8f) / 4f, 2f), 0f),
+                9f)
+            // b是熟练度最低时的收率 k代表变化率
+            val b = 0.9f - req * req * 0.005f - req * 0.045f
+            val k = (1f - b) * 0.1f
+            // 计算收率修正
+            // 这里，我们把熟练度重新映射到0~10的区间上。
+            baseCapRate *= k * min(10f, max(0f, aiExp - 5f)) + b
             // 然后根据能力值计算出收率
             val finalRate =
                 baseCapRate / (1f + exp(-1f * spell.changeRate *
@@ -427,7 +446,7 @@ class AIAgent(private val room: Room) {
 
     /** 初级AI：贪心+紧急防御。只选择最快的格子，除非看到四连。 */
     private fun findBestTargetBeginner(): Int {
-        val boardState = getBoardState() ?: return -1
+        val boardState = getBoardState()
 
         for (line in boardLines) {
             if (line.count { boardState[it] == PlayerState.EMPTY } == 1) {
@@ -448,7 +467,7 @@ class AIAgent(private val room: Room) {
 
     /** 中级AI：懂得基础的时间价值和空间布局，但没有对手建模。 */
     private fun findBestTargetIntermediate(): Int {
-        val boardState = getBoardState() ?: return -1
+        val boardState = getBoardState()
         val baselineTime = calculateBaselineTime(boardState)
 
         var bestCell = -1
@@ -467,7 +486,7 @@ class AIAgent(private val room: Room) {
         // 然后计算时间价值
         for (i in gridModels.indices) {
             if (boardState[i] == PlayerState.EMPTY) {
-                val etv = calculateEquivalentTimeValue(i, boardState, baselineTime, false)
+                val etv = calculateEquivalentTimeValue(i, boardState, baselineTime, 0.0, false)
                 if (etv > maxETV) {
                     maxETV = etv
                     bestCell = i
@@ -479,7 +498,7 @@ class AIAgent(private val room: Room) {
 
     /** 高级AI：使用完整的ETV模型，包含对手建模、风险评估、冲突规避和战略规划。 */
     private fun findBestTargetAdvanced(): Int {
-        val boardState = getBoardState() ?: return -1
+        val boardState = getBoardState()
         val humanScore = boardState.count { it == PlayerState.HUMAN }
         val isOpponentVisible = humanScore < 5
         val initiative = calculateInitiativeState()
@@ -503,25 +522,13 @@ class AIAgent(private val room: Room) {
         )
         decisionLog.append("Idx | ETV(s) | Notes\n")
 
+        val isFirstSelect = (boardState.count { it == PlayerState.EMPTY } == 25)
+
         for (i in gridModels.indices) {
             if (boardState[i] == PlayerState.EMPTY) {
                 var notes = ""
-                var etv: Double
 
-                // 如果双方都能五连
-                if (isWinningMove(i, PlayerState.AI, boardState) && isWinningMove(i, PlayerState.HUMAN, boardState)) {
-                    etv = Double.POSITIVE_INFINITY // 无需多言
-                    // 我方五连
-                } else if (isWinningMove(i, PlayerState.AI, boardState)) {
-                    etv = getWinMoveETV(rhythmAdvantage, i, baselineTime)
-                    notes += "[WINNING_MOVE]"
-                    // 对方五连
-                } else if (isWinningMove(i, PlayerState.HUMAN, boardState)) {
-                    etv = getBlockMoveETV(i, rhythmAdvantage, baselineTime)
-                    notes += "[MUST_BLOCK]"
-                } else {
-                    etv = calculateEquivalentTimeValue(i, boardState, baselineTime, true)
-                }
+                var etv = calculateEquivalentTimeValue(i, boardState, baselineTime, rhythmAdvantage, true)
 
                 if (isOpponentVisible && opponentProfile.lastSelectedIndex == i) {
                     notes += "[CONTESTED]"
@@ -532,7 +539,7 @@ class AIAgent(private val room: Room) {
                     }
                     if (!isWinnableContention(i, true, safetyMargin)) {
                         notes += "[UNWINNABLE]"
-                        etv = Double.NEGATIVE_INFINITY
+                        etv *= 0.4
                     } else {
                         notes += "[WINNABLE]"
                         etv += baselineTime
@@ -542,6 +549,13 @@ class AIAgent(private val room: Room) {
                     val uncertaintyPenalty = if (style == 1) uncertainPenaltyFactor + 0.1 else uncertainPenaltyFactor
                     etv *= uncertaintyPenalty
                     notes += "[UNCERTAIN_PENALTY_APPLIED]"
+                }
+
+                // 禁止抢一选
+                if (isFirstSelect) {
+                    if (opponentProfile.lastSelectedIndex == i) {
+                        etv = -9999.0
+                    }
                 }
 
                 decisionLog.append(String.format(" %-2d | %-6.1f | %s\n", i, etv, notes))
@@ -561,16 +575,27 @@ class AIAgent(private val room: Room) {
         cellIndex: Int,
         boardState: Array<PlayerState>,
         baselineTime: Float,
+        rhythmAdvantage: Double,
         useOpponentModel: Boolean
     ): Double {
         val grid = gridModels[cellIndex]
+        val isFallBehind = rhythmAdvantage < -1.75
         // 1. 直接时间价值：比平均节奏快多少/慢多少
         val directTimeValue = (baselineTime - grid.expectedTime).toDouble()
+
+        // 如果有四连，直接给一个高修正
+        var directLineValue = 0.0
+        if (isWinningMove(cellIndex, PlayerState.AI, boardState)) {
+            directLineValue += min(baselineTime * 4, 200.0f) - rhythmAdvantage * baselineTime
+        }
+        if (isWinningMove(cellIndex, PlayerState.HUMAN, boardState)) {
+            directLineValue += min(baselineTime * 5, 200.0f) + rhythmAdvantage * baselineTime
+        }
 
         // 2. 战略时间价值
         val positionalTimeValue = getPositionalTimeValue(cellIndex, baselineTime)
         // 是防守更重要，还是进攻？
-        val defenseWeight = if (useOpponentModel) {
+        var defenseWeight = if (useOpponentModel) {
             when (style) {
                 1 -> 0.9
                 2 -> 1.5
@@ -579,17 +604,20 @@ class AIAgent(private val room: Room) {
         } else {
             defenseWeight
         }
+        if (isFallBehind) {
+            defenseWeight *= 0.5
+        }
+
+        val gamePhaseModifier = calculateGamePhaseModifier(boardState)
 
         val offensiveLeverage = calculateTotalLeverage(cellIndex, PlayerState.AI, boardState, baselineTime, useOpponentModel)
         val defensiveLeverage =
             calculateTotalLeverage(cellIndex, PlayerState.HUMAN, boardState, baselineTime, useOpponentModel) * defenseWeight
 
-        // 3. 应用游戏阶段修正
-        val gamePhaseModifier = calculateGamePhaseModifier(boardState)
         // 归一化，计算该格总时间价值
-        val strategicTimeValue = (offensiveLeverage + defensiveLeverage) / (1.0 + defenseWeight) + positionalTimeValue
+        val strategicTimeValue = (offensiveLeverage + defensiveLeverage) / (1.0 + defenseWeight) * 2.0 + positionalTimeValue
 
-        return directTimeValue + (strategicTimeValue * gamePhaseModifier)
+        return directTimeValue + (strategicTimeValue * gamePhaseModifier) + directLineValue
     }
 
     /** 累加一个落子在所有相关线路上的时间杠杆。 */
@@ -625,7 +653,7 @@ class AIAgent(private val room: Room) {
 
         val myPiecesCount = line.count { boardState[it] == player }
         // 2. 潜力筛选：至少要有2个子才能形成有方向的威胁。
-        if (myPiecesCount < 2) return 0.0
+        if (myPiecesCount < 2 || myPiecesCount > 4) return 0.0
 
         val emptyCellsIndices = line.filter { boardState[it] == PlayerState.EMPTY }
         if (emptyCellsIndices.isEmpty()) return 0.0
@@ -635,14 +663,29 @@ class AIAgent(private val room: Room) {
         val emptyCellModels = emptyCellsIndices.map { gridModels[it] }
         val hardTargets = emptyCellModels.filter { it.expectedTime > baselineTime * difficultyMultiplier }
 
+        var isSuitable = true
+
         // 如果没有困难格作为“难题”，则无法形成时间陷阱。
-        if (hardTargets.isEmpty()) return 0.0
+        if (hardTargets.isEmpty()) isSuitable = false
+
+        hardTargets.sortedByDescending { it.expectedTime }
+        // 连线太难，难以折现
+        if (!hardTargets.isEmpty() && hardTargets[0].expectedTime > baselineTime * 7) isSuitable = false
+
+        // 但是连线行为本身还是有一定意义的
+        if (!isSuitable) {
+            return when (myPiecesCount) {
+                2 -> line2Bonus
+                3 -> line3Bonus
+                4 -> line4Bonus
+                else -> 0.0
+            } * 0.75
+        }
 
         // 4. 杠杆计算：计算难题的成本，并与基准节奏比较。
         val costOfHardProblem = if (useOpponentModel) {
             val opponentTExpectedProvider: (Int) -> Double = { index ->
-                (room.spells?.get(index)?.fastest?.toDouble()
-                    ?: gridModels[index].expectedTime.toDouble()) / opponentProfile.avgEfficiency
+                room.spells!![index].fastest.toDouble() / opponentProfile.avgEfficiency
             }
             hardTargets.minOf { opponentTExpectedProvider(it.index) }
         } else {
@@ -650,14 +693,42 @@ class AIAgent(private val room: Room) {
         }
 
         var timeLeverage = max(0.0, costOfHardProblem - baselineTime)
-        // 但是如果一个格子过于耗时，对手很可能暂时置之不理，因此应有一个优势上限
-        if (timeLeverage > baselineTime * 1.5) timeLeverage = baselineTime * 1.5
-
-        // 折现系数：2连0.2， 3连0.7， 4连1.0。显然2连不能称为有效的陷阱，而4连就是了
-        timeLeverage *= when (myPiecesCount) {
-            2 -> 0.2
-            3 -> 0.7
-            4 -> 1.0
+        // 考虑折现问题
+        // 4连折现效率很高，除非太难
+        timeLeverage = when {
+            timeLeverage < baselineTime * 2 -> timeLeverage
+            timeLeverage < baselineTime * 5 -> 3.34 * baselineTime - timeLeverage * 0.67
+            else -> 0.0
+        }
+        // 3连，一难一简单，中等折现效率
+        // 否则看两张的总连线效率，难连线的就难折现
+        if (myPiecesCount == 3) {
+            if (hardTargets.size == 1) {
+                timeLeverage *= 0.6
+            } else {
+                val t0 = hardTargets[0].expectedTime.toDouble() / baselineTime
+                val t1 = hardTargets[0].expectedTime.toDouble() / baselineTime
+                timeLeverage *= max(0.9 - 0.02 * (t0 * t0 + t1 * t1), 0.1)
+            }
+        }
+        // 2连类似，但折现率更低
+        if (myPiecesCount == 2) {
+            if (hardTargets.size == 1) {
+                timeLeverage *= 0.3
+            } else {
+                var t = 0.0
+                hardTargets.forEach { it ->
+                    t += (it.expectedTime.toDouble() / baselineTime) *
+                        (it.expectedTime.toDouble() / baselineTime)
+                }
+                timeLeverage *= max(0.9 - 0.02 * t, 0.1) * 0.5
+            }
+        }
+        // 仍然给连线行为一个基础值
+        timeLeverage += when (myPiecesCount) {
+            2 -> line2Bonus
+            3 -> line3Bonus
+            4 -> line4Bonus
             else -> 0.0
         }
 
@@ -761,74 +832,10 @@ class AIAgent(private val room: Room) {
         return scoreAdvantage + fractionalAdvantage
     }
 
-    /**
-     * 规定高级AI的连线倾向。AI会在我方劣势较大时尝试连线。越激进的AI越喜欢连线。
-     * AI越激进，对连线耗时忍受度也越高。
-     */
-    private fun getWinMoveETV(rhythmAdvantage: Double, cellIndex: Int, baselineTime: Float): Double {
-        val cdTimeMs = (room.roomConfig.cdTime ?: 30) * 1000L
-        val turnDuration = baselineTime + cdTimeMs / 1000.0
-        val attackCostInTurns = gridModels[cellIndex].expectedTime / turnDuration
-
-        // 有多大优势时，AI会主动连线？
-        // 只有进攻型AI会在优势下主动连线
-        val tryLineThresholdA = when (style) {
-            1 -> 1.0
-            else -> 99.0
-        }
-
-        // 有多大劣势时，AI会主动连线？
-        val tryLineThresholdB = when (style) {
-            1 -> -0.5
-            2 -> -2.0
-            else -> -1.25
-        }
-
-        // 符合主动连线的局势要求
-        return if (rhythmAdvantage > tryLineThresholdA || rhythmAdvantage < tryLineThresholdB) {
-            99.0
-        } else {
-            -99.0
-        }
-    }
-
-    /**
-     * **NEW**: Dynamically evaluates the ETV of blocking a losing move.
-     */
-    private fun getBlockMoveETV(cellIndex: Int, rhythmAdvantage: Double, baselineTime: Float): Double {
-        val cdTimeMs = (room.roomConfig.cdTime ?: 30) * 1000L
-        val turnDuration = baselineTime + cdTimeMs / 1000.0
-        val blockCostInTurns = gridModels[cellIndex].expectedTime / turnDuration
-
-        // 堵连线消耗不大，先堵上再说
-        if (blockCostInTurns < 1.25) {
-            return Double.POSITIVE_INFINITY
-        }
-
-        val newRhythmAdvantage = rhythmAdvantage - blockCostInTurns
-        val enduranceLimit = when (style) {
-            1 -> -2.0
-            2 -> -4.0
-            else -> -3.0
-        }
-
-        if (newRhythmAdvantage < enduranceLimit) {
-            logger.warn(
-                "Blocking cell $cellIndex would lead to a hopeless rhythm advantage of $newRhythmAdvantage." +
-                    " Considering alternatives."
-            )
-            return when (style) {
-                1 -> -100.0 // 不堵了开摆
-                else -> 16.0 // 先看看其它有没有好格子
-            }
-        }
-
-        // Default: blocking is the highest priority.
-        return Double.POSITIVE_INFINITY
-    }
-
     /** 检查是否应该使用换卡。 */
     private fun shouldAbandon(): Boolean {
+        return false
+        /*
         if (strategyLevel < 3 || remainingAbandons <= 0 || currentState != AIState.ATTEMPTING) return false
         val task = currentTask ?: return false
         val boardState = getBoardState() ?: return false
@@ -839,7 +846,7 @@ class AIAgent(private val room: Room) {
                 if (isWinningMove(i, PlayerState.HUMAN, boardState)) {
                     val myRemainingTime = (task.startTimeMs + task.durationMs) - getCorrectedTime()
                     // 快打完了，换掉太亏
-                    if (myRemainingTime > abandonPenaltyMs / 1000) {
+                    if (myRemainingTime > abandonPenaltyMs / 1000 * 1.5) {
                         return false
                     }
                     logger.info("ABANDON triggered: Urgent winning/losing cell $i appeared.")
@@ -849,6 +856,7 @@ class AIAgent(private val room: Room) {
         }
 
         return false
+         */
     }
 
     /** 执行放弃操作。 */
@@ -894,7 +902,8 @@ class AIAgent(private val room: Room) {
                         else -> PlayerState.EMPTY
                     }
                 }.toTypedArray()
-                val opponentETV = calculateEquivalentTimeValue(i, opponentBoardState, baselineTime, true)
+                val opponentETV = calculateEquivalentTimeValue(i, opponentBoardState, baselineTime,
+                    -calculateRhythmAdvantage(getBoardState(), baselineTime), true)
                 if (opponentETV > maxOpponentETV) {
                     maxOpponentETV = opponentETV
                     bestOpponentCell = i
@@ -905,13 +914,13 @@ class AIAgent(private val room: Room) {
     }
 
     /** 获取当前棋盘状态的简单表示。 */
-    private fun getBoardState(): Array<PlayerState>? = room.spellStatus?.map {
+    private fun getBoardState(): Array<PlayerState> = room.spellStatus!!.map {
         when (it) {
             SpellStatus.RIGHT_GET -> PlayerState.AI
             SpellStatus.LEFT_GET -> PlayerState.HUMAN
             else -> PlayerState.EMPTY
         }
-    }?.toTypedArray()
+    }.toTypedArray()
 
     /** 计算当前棋局的平均节奏（基准时间）。 */
     private fun calculateBaselineTime(boardState: Array<PlayerState>): Float = gridModels
@@ -922,10 +931,8 @@ class AIAgent(private val room: Room) {
         .average().toFloat().takeIf { !it.isNaN() } ?: 20.0f
 
     /** 根据AI等级获取“困难格”的定义乘数。即超过 */
-    private fun getDifficultyMultiplier(): Float = when (strategyLevel) {
-        2 -> 2.0f
-        3 -> 1.5f
-        else -> 3f
+    private fun getDifficultyMultiplier(): Float {
+        return 1.6f
     }
 
     /** 获取一个格子的初始位置价值（以时间为单位）。 */
@@ -972,10 +979,11 @@ class AIAgent(private val room: Room) {
     private fun calculateGamePhaseModifier(boardState: Array<PlayerState>): Double {
         val totalPieces = boardState.count { it != PlayerState.EMPTY }
         return when {
-            totalPieces <= 8 -> totalPieces * 0.1 // 初局，优先考虑占位置
-            totalPieces <= 16 -> 1.0 // 中盘，构筑连线
-            totalPieces <= 20 -> 0.4 // 开始抢分
-            else -> 0.1 // 完全进入抢分模式
+            totalPieces <= 4 -> 0.4 // 初局，优先考虑占位置
+            totalPieces <= 8 -> 0.7
+            totalPieces <= 18 -> 1.0 // 中盘，构筑连线
+            totalPieces <= 25 -> 0.4 // 抢分
+            else -> 0.0
         }
     }
 
