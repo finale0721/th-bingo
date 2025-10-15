@@ -119,7 +119,7 @@ class AIAgent(private val room: Room) {
     fun start() {
         logger.info("AIAgent for room ${room.roomId} starting...")
         initializeGridModels()
-        executor.scheduleAtFixedRate(this::tick, 0, 100, TimeUnit.MILLISECONDS)
+        executor.scheduleAtFixedRate(this::tick, 0, 500, TimeUnit.MILLISECONDS)
     }
 
     /** 停止AI Agent，关闭线程池。 */
