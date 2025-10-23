@@ -68,6 +68,9 @@ class RoomConfig(
     /** AI作品修正 */
     @SerialName("ai_preference")
     val aiPreference: HashMap<String, Int>,
+    /** 自定义等级数量 */
+    @SerialName("custom_level_count")
+    val customLevelCount: Array<Int>
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -91,6 +94,8 @@ class RoomConfig(
         aiExperience in 1..10 || throw HandlerException("AI熟练度设置范围应为1~10")
         gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
         aiPreference.values.all { it in -2..2 } || throw HandlerException("AI作品修正数值范围应为-2~2")
+        customLevelCount.size == 9 || throw HandlerException("自定义等级数据格式错误")
+        customLevelCount.all { it in 0..25 } || throw HandlerException("自定义等级数量数值范围应为0~25")
     }
 
     operator fun plus(config: RoomConfigNullable): RoomConfig {
@@ -118,6 +123,7 @@ class RoomConfig(
             aiExperience = config.aiExperience ?: aiExperience,
             gameWeight = config.gameWeight ?: gameWeight,
             aiPreference = config.aiPreference ?: aiPreference,
+            customLevelCount = config.customLevelCount ?: customLevelCount
         )
     }
 }
@@ -187,6 +193,9 @@ class RoomConfigNullable(
     /** AI作品修正 */
     @SerialName("ai_preference")
     val aiPreference: HashMap<String, Int>? = null,
+    /** 自定义等级数量 */
+    @SerialName("custom_level_count")
+    val customLevelCount: Array<Int>? = null
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -211,5 +220,7 @@ class RoomConfigNullable(
         gameWeight == null || gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
         aiPreference == null || aiPreference.values.all { it in -2..2 } ||
             throw HandlerException("AI作品修正数值范围应为-2~2")
+        customLevelCount == null || customLevelCount.size == 9 || throw HandlerException("自定义等级数据格式错误")
+        customLevelCount == null || customLevelCount.all { it in 0..25 } || throw HandlerException("自定义等级数量数值范围应为0~25")
     }
 }

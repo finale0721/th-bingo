@@ -70,4 +70,19 @@ object Store {
     fun removeRoom(roomId: String) {
         roomCache.remove(roomId)
     }
+
+    fun getRoomList(): List<RoomInfoForList> {
+        return roomCache.values
+            .sortedByDescending { it.lastOperateMs }
+            .take(10)
+            .map {
+                RoomInfoForList(
+                    rid = it.roomId,
+                    host = it.host?.name,
+                    players = it.players.map { p -> p?.name },
+                    lastActive = it.lastOperateMs,
+                    isMatching = it.started
+                )
+            }
+    }
 }

@@ -69,6 +69,10 @@ sealed interface RoomType {
         room.linkData = null
     }
 
+    fun setUp(room: Room) {
+        Difficulty.constructCustom(room.roomConfig.customLevelCount)
+    }
+
     fun onStart(room: Room)
 
     @Throws(HandlerException::class)

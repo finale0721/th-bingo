@@ -14,6 +14,7 @@ object StartGameHandler : RequestHandler {
         room.players.all { it != null } || throw HandlerException("玩家没满")
         // 执行随机符卡与状态设定
         room.type.resetData(room)
+        room.type.setUp(room)
         room.type.rollSpellCard(room)
         room.type.initStatus(room)
         if (room.gameLogger == null) {

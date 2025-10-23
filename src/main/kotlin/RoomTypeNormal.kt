@@ -28,7 +28,7 @@ object RoomTypeNormal : RoomType {
         }
 
         // FIXME: SAFETY CHECK SHOULD NOT USE HARDCODED STRING AND CHECK THE CONFIG CORRUPTION ISSUE
-        if (room.roomConfig.useAI && room.players[1]!!.name.equals("训练用毛玉")) {
+        if (room.roomConfig.useAI && room.players[1]!!.name.equals(Store.ROBOT_NAME)) {
             if (room.roomConfig.blindSetting > 1 || room.roomConfig.dualBoard > 0) {
                 throw HandlerException("AI陪练模式不支持盲盒或双重盘面")
             }
@@ -179,6 +179,11 @@ object RoomTypeNormal : RoomType {
     @Throws(HandlerException::class)
     override fun randSpells(spellCardVersion: Int, games: Array<String>, ranks: Array<String>, difficulty: Int?): Array<Spell> {
         difficulty?.let {
+            if (it == 6) {
+                return SpellFactory.randSpellsCustom(
+                    spellCardVersion, games, ranks, difficulty
+                )
+            }
             if (it >= 4)
                 return SpellFactory.randSpellsOD(
                     spellCardVersion, games, ranks, difficulty
@@ -196,6 +201,9 @@ object RoomTypeNormal : RoomType {
 
     override fun rollSpellsStarArray(difficulty: Int?): IntArray {
         difficulty?.let {
+            if (it == 6) {
+                return SpellFactory.randSpellsCustomStarArray(Difficulty.settingCache)
+            }
             if (it >= 4)
                 return SpellFactory.randSpellsODStarArray(difficulty)
         }

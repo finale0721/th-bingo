@@ -77,6 +77,7 @@ private val handlers = mapOf(
     "normal_dual_board_change" to NormalDualBoardChangeHandler,
     "refresh_one_spell" to RefreshSpellHandler,
     "print_log" to PrintLogHandler,
+    "get_room_list" to GetRoomListHandler,
 )
 
 inline fun <reified T> JsonElement.decode(): T = Dispatcher.json.decodeFromJsonElement(this)
