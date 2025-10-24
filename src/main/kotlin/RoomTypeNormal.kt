@@ -228,6 +228,11 @@ object RoomTypeNormal : RoomType {
             return randSpells(spellCardVersion, games, ranks, difficulty)
         }
         difficulty?.let {
+            if (it == 6) {
+                return SpellFactory.randSpellsCustomWithStar(
+                    spellCardVersion, games, ranks, stars
+                )
+            }
             if (it >= 4)
                 return SpellFactory.randSpellsODWithStar(
                     spellCardVersion, games, ranks, stars

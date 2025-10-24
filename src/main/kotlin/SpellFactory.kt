@@ -145,6 +145,18 @@ object SpellFactory {
             games, ranks, ranksToExPos(ranks, rand), stars, rand)
     }
 
+    @Throws(HandlerException::class)
+    fun randSpellsCustomWithStar(
+        spellCardVersion: Int,
+        games: Array<String>,
+        ranks: Array<String>?,
+        stars: IntArray
+    ): Array<Spell> {
+        val rand = ThreadLocalRandom.current().asKotlinRandom()
+        return SpellConfig.getOD(SpellConfig.NORMAL_GAME, spellCardVersion,
+            games, ranks, ranksToExPosCustom(ranks, rand, Difficulty.settingCache), stars, rand)
+    }
+
     /**
      * 随符卡，用于标准模式-自定义
      * games：开启的游戏 string[]
@@ -153,7 +165,7 @@ object SpellFactory {
     @Throws(HandlerException::class)
     fun randSpellsCustom(spellCardVersion: Int, games: Array<String>, ranks: Array<String>?, difficulty: Int): Array<Spell> {
         val starArray = randSpellsCustomStarArray(Difficulty.settingCache)
-        return randSpellsODWithStar(spellCardVersion, games, ranks, starArray)
+        return randSpellsCustomWithStar(spellCardVersion, games, ranks, starArray)
     }
 
     // 自定义生成
@@ -162,6 +174,7 @@ object SpellFactory {
         // 0~4分别表示1~5级卡数量
         // 5,6为标志位，为1分别表示强制4/5级的基础王后分布、是否启用4/5级卡不足替换机制
         // 7,8分别表示强制的4/5级卡数量
+        // 9使用默认ex生成 10自定义ex数量词
         if (s[0] + s[1] + s[2] + s[3] + s[4] != 25) {
             return randSpellsStarArray(Difficulty.L)
         }
@@ -271,5 +284,22 @@ object SpellFactory {
         for ((i, j) in idx.withIndex())
             idx[i] = i * 5 + j
         return idx
+    }
+
+    private fun ranksToExPosCustom(ranks: Array<String>?, rand: Random, s: IntArray): IntArray {
+        if (ranks != null && ranks.all { it == "L" })
+            return intArrayOf()
+        if (s[9] == 1) {
+            val idx = intArrayOf(0, 1, 2, 3, 4)
+            idx.shuffle(rand)
+            for ((i, j) in idx.withIndex())
+                idx[i] = i * 5 + j
+            return idx
+        } else {
+            if (s[10] > 25 || s[10] < 0) return intArrayOf()
+            val index = IntArray(25) { i -> i }
+            index.shuffle(rand)
+            return index.sliceArray(0..s[10] - 1)
+        }
     }
 }
