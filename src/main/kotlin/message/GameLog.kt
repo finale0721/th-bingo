@@ -24,4 +24,5 @@ data class GameLog(
     val gameStartTimestamp: Long,
     val score: List<Int>,
     val initStatus: List<Int>,
+    val isCustomGame: Boolean,
 )

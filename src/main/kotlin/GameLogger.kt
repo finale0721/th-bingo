@@ -16,6 +16,7 @@ class GameLogger {
     private var score = intArrayOf(0, 0)
     private var room: Room? = null
     private var initStatus: Array<Int>? = null
+    private var isCustomGame = false
 
     private fun updateScore(room: Room) {
         var left = 0
@@ -65,6 +66,7 @@ class GameLogger {
         room.spellStatus!!.forEachIndexed { index, status ->
             initStatus!![index] = status.value
         }
+        this.isCustomGame = room.isCustomGame
     }
 
     fun logAction(player: Player, actionType: String, spellIndex: Int, spell: Spell) {
@@ -97,7 +99,8 @@ class GameLogger {
             actions = actions.toList(),
             gameStartTimestamp = this.gameStartTimestamp,
             score = this.score.toList(),
-            initStatus = initStatus!!.toList()
+            initStatus = initStatus!!.toList(),
+            isCustomGame = this.isCustomGame
         )
     }
 
@@ -111,5 +114,6 @@ class GameLogger {
         players.fill("")
         score = intArrayOf(0, 0)
         initStatus = null
+        isCustomGame = false
     }
 }

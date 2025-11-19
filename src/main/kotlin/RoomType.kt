@@ -8,6 +8,9 @@ sealed interface RoomType {
 
     @Throws(HandlerException::class)
     fun rollSpellCard(room: Room, stars: IntArray? = null) {
+        if (room.isCustomGame) {
+            return
+        }
         SpellConfig.fixWeightVar(room.roomConfig.gameWeight.get("weight_balancer") ?: 0)
         SpellConfig.setWeightDict(room.roomConfig.gameWeight)
         val start = System.currentTimeMillis()
@@ -67,6 +70,7 @@ sealed interface RoomType {
         room.normalData = null
         room.bpData = null
         room.linkData = null
+        room.isCustomGame = false
     }
 
     fun setUp(room: Room) {

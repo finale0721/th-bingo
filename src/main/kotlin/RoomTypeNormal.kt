@@ -27,7 +27,6 @@ object RoomTypeNormal : RoomType {
             handleBlindSettings(room)
         }
 
-        // FIXME: SAFETY CHECK SHOULD NOT USE HARDCODED STRING AND CHECK THE CONFIG CORRUPTION ISSUE
         if (room.roomConfig.useAI && room.players[1]!!.name.equals(Store.ROBOT_NAME)) {
             if (room.roomConfig.blindSetting > 1 || room.roomConfig.dualBoard > 0) {
                 throw HandlerException("AI陪练模式不支持盲盒或双重盘面")

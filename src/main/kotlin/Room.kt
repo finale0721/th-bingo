@@ -77,4 +77,6 @@ class Room(
     var refreshManager2: RefreshSpellManager? = null
 
     var aiAgent: AIAgent? = null
+
+    var isCustomGame = false
 }

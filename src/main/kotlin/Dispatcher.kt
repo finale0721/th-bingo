@@ -78,6 +78,8 @@ private val handlers = mapOf(
     "refresh_one_spell" to RefreshSpellHandler,
     "print_log" to PrintLogHandler,
     "get_room_list" to GetRoomListHandler,
+    "get_xlsx_data" to GetXlsxDataHandler,
+    "start_custom_game" to StartCustomGameHandler,
 )
 
 inline fun <reified T> JsonElement.decode(): T = Dispatcher.json.decodeFromJsonElement(this)

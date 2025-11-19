@@ -605,7 +605,7 @@ object SpellConfig {
 
     private val isWindows = System.getProperty("os.name").lowercase().contains("windows")
 
-    private fun get(type: Int, fileCode: Int): Map<Int, Map<Boolean, Map<String, List<Spell>>>> {
+    fun get(type: Int, fileCode: Int): Map<Int, Map<Boolean, Map<String, List<Spell>>>> {
         // 读取控制文件获取文件名和更新标记
         val (fileName, needUpdate) = parseControlFile(fileCode)
 
