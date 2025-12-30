@@ -58,10 +58,13 @@ class RoomConfig(
     val aiStyle: Int, // 0:默认, 1:进攻型, 2:防守型
     /** AI底力 */
     @SerialName("ai_base_power")
-    val aiBasePower: Int,
+    val aiBasePower: Float,
     /** AI熟练度 */
     @SerialName("ai_experience")
-    val aiExperience: Int,
+    val aiExperience: Float,
+    /** AI选卡温度 */
+    @SerialName("ai_temperature")
+    val aiTemperature: Float,
     /** 游戏权重 */
     @SerialName("game_weight")
     val gameWeight: HashMap<String, Int>,
@@ -90,8 +93,8 @@ class RoomConfig(
         diffLevel in -1..5 || throw HandlerException("盘面差异度等级应在-1~5之间")
         aiStrategyLevel in 1..3 || throw HandlerException("AI策略难度设置范围应为1~3")
         aiStyle in 0..2 || throw HandlerException("AI决策风格设置范围应为0~2")
-        aiBasePower in 1..10 || throw HandlerException("AI底力设置范围应为1~10")
-        aiExperience in 1..10 || throw HandlerException("AI熟练度设置范围应为1~10")
+        aiBasePower < 10.1f || throw HandlerException("AI底力设置范围应为1~10")
+        aiExperience < 10.1f || throw HandlerException("AI熟练度设置范围应为1~10")
         gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
         aiPreference.values.all { it in -2..2 } || throw HandlerException("AI作品修正数值范围应为-2~2")
         customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
@@ -123,7 +126,8 @@ class RoomConfig(
             aiExperience = config.aiExperience ?: aiExperience,
             gameWeight = config.gameWeight ?: gameWeight,
             aiPreference = config.aiPreference ?: aiPreference,
-            customLevelCount = config.customLevelCount ?: customLevelCount
+            customLevelCount = config.customLevelCount ?: customLevelCount,
+            aiTemperature = config.aiTemperature ?: aiTemperature
         )
     }
 }
@@ -183,10 +187,13 @@ class RoomConfigNullable(
     val aiStyle: Int? = null, // 0:默认, 1:进攻型, 2:防守型
     /** AI底力 */
     @SerialName("ai_base_power")
-    val aiBasePower: Int? = null,
+    val aiBasePower: Float? = null,
     /** AI熟练度 */
     @SerialName("ai_experience")
-    val aiExperience: Int? = null,
+    val aiExperience: Float? = null,
+    /** AI选卡温度 */
+    @SerialName("ai_temperature")
+    val aiTemperature: Float? = null,
     /** 游戏权重 */
     @SerialName("game_weight")
     val gameWeight: HashMap<String, Int>? = null,
@@ -215,8 +222,8 @@ class RoomConfigNullable(
         diffLevel == null || diffLevel in -1..5 || throw HandlerException("盘面差异度等级应在-1~5之间")
         aiStrategyLevel == null || aiStrategyLevel in 1..3 || throw HandlerException("AI策略难度设置范围应为1~3")
         aiStyle == null || aiStyle in 0..2 || throw HandlerException("AI决策风格设置范围应为0~2")
-        aiBasePower == null || aiBasePower in 1..10 || throw HandlerException("AI底力设置范围应为1~10")
-        aiExperience == null || aiExperience in 1..10 || throw HandlerException("AI熟练度设置范围应为1~10")
+        aiBasePower == null || aiBasePower < 10.1f || throw HandlerException("AI底力设置范围应为1~10")
+        aiExperience == null || aiExperience < 10.1f || throw HandlerException("AI熟练度设置范围应为1~10")
         gameWeight == null || gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
         aiPreference == null || aiPreference.values.all { it in -2..2 } ||
             throw HandlerException("AI作品修正数值范围应为-2~2")

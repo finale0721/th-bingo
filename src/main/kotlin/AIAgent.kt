@@ -6,6 +6,7 @@ import java.lang.Float.min
 import java.util.concurrent.*
 import kotlin.math.exp
 import kotlin.math.max
+import kotlin.math.sqrt
 import kotlin.random.Random
 
 /**
@@ -351,7 +352,7 @@ class AIAgent(private val room: Room) {
             val model = GridModel(boardIndex, spell.fastest, 0f)
             val prefLevel = room.roomConfig.aiPreference[spell.game] ?: 0
             // 基于等级与作品偏向性计算AI的底力与熟练度
-            val aiPower = room.roomConfig.aiBasePower + 5f
+            val aiPower = max(room.roomConfig.aiBasePower + 5f, 5f)
             val aief = prefLevel * if (prefLevel > 0) 3f else 4f
             val aiExp = max(room.roomConfig.aiExperience + 5f + aief, 0.0f)
             // 每张卡的底力与熟练度权重。二者和一定为1
@@ -366,6 +367,13 @@ class AIAgent(private val room: Room) {
                 // 否则，给一个较小的随机时间惩罚（形状不好，最多+25%）、并额外 进行熟练度惩罚。
                 model.calculatedAI = spell.fastest + 3.5f + randFloat1 * spell.fastest * .25f +
                     randFloat2 * max(6f - aiExp / 4f, 0f)
+            }
+            // 根据纯难度计算一个最小收率
+            var minCapRate = 0f
+            if (spell.difficulty < 8.0f) {
+                minCapRate = 0.17f
+            } else {
+                minCapRate = max(0.17f - (spell.difficulty - 8f) * .02f, 0f)
             }
             // 计算基础收率
             var baseCapRate = spell.maxCapRate + if (prefLevel > 0) (1f - spell.maxCapRate) * 0.33f * prefLevel else 0f
@@ -388,10 +396,11 @@ class AIAgent(private val room: Room) {
             // 这里，我们把熟练度重新映射到0~10的区间上。
             baseCapRate *= k * min(10f, max(0f, aiExp - 5f)) + b
             // 然后根据能力值计算出收率
+            baseCapRate = max(baseCapRate - minCapRate, 0f)
             val finalRate =
-                baseCapRate / (1f + exp(-1f * spell.changeRate *
+                baseCapRate / (1f + exp(-.925f * spell.changeRate *
                     (aiPower * spellPowerWeight + aiExp * spellExpWeight - spell.difficulty)
-                ))
+                )) + minCapRate
             // 给收率一个界限
             model.calculatedPI = min(.999f, max(finalRate, .001f))
             // 计算失败的耗时。重开游戏另加1.5秒。
@@ -502,6 +511,7 @@ class AIAgent(private val room: Room) {
         val humanScore = boardState.count { it == PlayerState.HUMAN }
         val isOpponentVisible = humanScore < 5
         val initiative = calculateInitiativeState()
+        val temperature = max(room.roomConfig.aiTemperature, 0f)
 
         val predictedOpponentTarget = if (!isOpponentVisible && initiative != InitiativeState.CLEAR) {
             predictOpponentTarget(boardState)
@@ -512,8 +522,9 @@ class AIAgent(private val room: Room) {
         val baselineTime = calculateBaselineTime(boardState)
         val rhythmAdvantage = calculateRhythmAdvantage(boardState, baselineTime)
 
-        var bestCell = -1
-        var maxETV = -Double.MAX_VALUE
+        data class Strategy(val cell: Int, val etv: Double, val notes: String)
+        val strategies = mutableListOf<Strategy>()
+
         val decisionLog = StringBuilder(
             "AI Decision Matrix (RhythmAdv: ${"%.2f".format(rhythmAdvantage)}" +
                 ", Baseline: ${"%.2f".format(baselineTime)}s, " +
@@ -533,8 +544,8 @@ class AIAgent(private val room: Room) {
                 if (isOpponentVisible && opponentProfile.lastSelectedIndex == i) {
                     notes += "[CONTESTED]"
                     val safetyMargin = when (style) {
-                        1 -> safetyMarginDefault - 0.15 // 我能抢赢！
-                        2 -> safetyMarginDefault + 0.15
+                        1 -> safetyMarginDefault + 0.15 // 我能抢赢！
+                        2 -> safetyMarginDefault - 0.15
                         else -> safetyMarginDefault
                     }
                     if (!isWinnableContention(i, true, safetyMargin)) {
@@ -558,16 +569,68 @@ class AIAgent(private val room: Room) {
                     }
                 }
 
-                decisionLog.append(String.format(" %-2d | %-6.1f | %s\n", i, etv, notes))
-
-                if (etv > maxETV) {
-                    maxETV = etv
-                    bestCell = i
-                }
+                strategies.add(Strategy(i, etv, notes))
             }
         }
+
+        strategies.forEach {
+            decisionLog.append(String.format(" %-2d | %-6.1f | %s\n", it.cell, it.etv, it.notes))
+        }
         logger.debug(decisionLog.toString())
-        return bestCell
+
+        if (strategies.isEmpty()) {
+            return -1
+        }
+
+        val topStrategies = strategies.sortedByDescending { it.etv }.take(5)
+
+        if (topStrategies.isEmpty()) {
+            return -1
+        }
+
+        if (temperature < .01f) {
+            return topStrategies.first().cell
+        }
+
+        val minEtv = topStrategies.last().etv
+        val maxEtv = topStrategies.first().etv
+
+        if (minEtv == maxEtv) {
+            return topStrategies.random().cell
+        }
+
+        val scaledStrategies = topStrategies.map {
+            val compressedEtv = sqrt(it.etv - minEtv) / 2.5
+            it to compressedEtv
+        }
+
+        val maxCompressedEtv = scaledStrategies.first().second
+        val weights = scaledStrategies.map { exp((it.second - maxCompressedEtv) / temperature) }
+        val totalWeight = weights.sum()
+
+        if (totalWeight == 0.0) {
+            return topStrategies.first().cell
+        }
+
+        val probabilities = weights.map { it / totalWeight }
+
+        val weightLog = StringBuilder("Weight Distribution:\n")
+        weightLog.append("Idx | ETV(s) | Probability\n")
+        topStrategies.forEachIndexed { index, strategy ->
+            weightLog.append(String.format(" %-2d | %-6.1f | %-6.3f\n", strategy.cell, strategy.etv, probabilities[index]))
+        }
+        logger.debug(weightLog.toString())
+
+        val random = Random.nextDouble()
+        var cumulative = 0.0
+        for (i in scaledStrategies.indices) {
+            cumulative += probabilities[i]
+            if (random < cumulative) {
+                return scaledStrategies[i].first.cell
+            }
+        }
+
+        return topStrategies.last().cell
     }
 
     /** 计算一个格子的等效时间价值(ETV)，是整个决策模型的核心。 */
