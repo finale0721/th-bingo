@@ -19,7 +19,7 @@ object GetAllSpellsHandler : RequestHandler {
         var now = System.currentTimeMillis()
         val countdown = room.roomConfig.countdown * 1000L
         val gameTime = room.roomConfig.gameTime * 60000L
-        val cdTime = (room.roomConfig.cdTime ?: 0) * 1000L
+        val cdTime = if (playerIndex >= 0) room.actualCdTime[playerIndex] else 0L // 使用该选手的实际CD时间
         if (room.started) {
             if (now < room.startMs + countdown) {
                 status = 1 // 倒计时

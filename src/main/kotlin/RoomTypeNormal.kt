@@ -257,10 +257,10 @@ object RoomTypeNormal : RoomType {
             if (st == RIGHT_SELECT) throw HandlerException("倒计时阶段不能抢卡")
         }
         // 选卡CD
-        val cdTime = room.roomConfig.cdTime ?: 0
+        val cdTime = room.actualCdTime[playerIndex] // 使用各选手的实际CD时间
         if (cdTime > 0) {
             val lastGetTime = room.lastGetTime[playerIndex]
-            val nextCanSelectTime = lastGetTime + (cdTime - 1) * 1000L // 服务器扣一秒，以防网络延迟
+            val nextCanSelectTime = lastGetTime + (cdTime - 1000L) // 服务器扛一秒，以防网络延迟
             val remainSelectTime = nextCanSelectTime - now
             if (remainSelectTime > 0)
                 throw HandlerException("还有${remainSelectTime / 1000 + 1}秒才能选卡")

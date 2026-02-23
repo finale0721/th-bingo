@@ -26,6 +26,12 @@ class RoomConfig(
     /** 选卡cd，收卡后要多少秒才能选下一张卡，空表示0 */
     @SerialName("cd_time")
     val cdTime: Int?,
+    /** 左侧选手（A）的CD修正值，单位：秒 */
+    @SerialName("cd_modifier_a")
+    val cdModifierA: Int?,
+    /** 右侧选手（B）的CD修正值，单位：秒 */
+    @SerialName("cd_modifier_b")
+    val cdModifierB: Int?,
     /** 是否为团体赛 */
     @SerialName("reserved_type")
     val reservedType: Int? = null,
@@ -73,7 +79,7 @@ class RoomConfig(
     val aiPreference: HashMap<String, Int>,
     /** 自定义等级数量 */
     @SerialName("custom_level_count")
-    val customLevelCount: Array<Int>
+    val customLevelCount: Array<Int>,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -85,6 +91,8 @@ class RoomConfig(
         ranks.size <= 6 || throw HandlerException("选择的难度数太多")
         needWin == null || needWin in 1..99 || throw HandlerException("需要胜场的数值不正确")
         cdTime == null || cdTime in 0..1440 || throw HandlerException("选卡cd的数值不正确")
+        cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("左侧选手CD修正值范围应为-1440~2880")
+        cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("右侧选手CD修正值范围应为-1440~2880")
         blindSetting in 1..3 || throw HandlerException("盲盒模式设置不正确")
         spellCardVersion in 1..10 || throw HandlerException("题库版本选择不正确")
         dualBoard in 0..1 || throw HandlerException("双重模式设置不正确")
@@ -127,7 +135,9 @@ class RoomConfig(
             gameWeight = config.gameWeight ?: gameWeight,
             aiPreference = config.aiPreference ?: aiPreference,
             customLevelCount = config.customLevelCount ?: customLevelCount,
-            aiTemperature = config.aiTemperature ?: aiTemperature
+            aiTemperature = config.aiTemperature ?: aiTemperature,
+            cdModifierA = config.cdModifierA ?: cdModifierA,
+            cdModifierB = config.cdModifierB ?: cdModifierB
         )
     }
 }
@@ -155,6 +165,12 @@ class RoomConfigNullable(
     /** 选卡cd，收卡后要多少秒才能选下一张卡，空表示0 */
     @SerialName("cd_time")
     val cdTime: Int? = null,
+    /** 左侧选手（A）的CD修正值，单位：秒 */
+    @SerialName("cd_modifier_a")
+    val cdModifierA: Int? = null,
+    /** 右侧选手（B）的CD修正值，单位：秒 */
+    @SerialName("cd_modifier_b")
+    val cdModifierB: Int? = null,
     /** 是否为团体赛 */
     @SerialName("reserved_type")
     val reservedType: Int? = null,
@@ -214,6 +230,8 @@ class RoomConfigNullable(
         ranks == null || ranks.size <= 6 || throw HandlerException("选择的难度数太多")
         needWin == null || needWin in 1..99 || throw HandlerException("需要胜场的数值不正确")
         cdTime == null || cdTime in 0..1440 || throw HandlerException("选卡cd的数值不正确")
+        cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("左侧选手CD修正值范围应为-1440~2880")
+        cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("右侧选手CD修正值范围应为-1440~2880")
         blindSetting == null || blindSetting in 1..3 || throw HandlerException("盲盒模式设置不正确")
         spellCardVersion == null || spellCardVersion in 1..10 || throw HandlerException("题库版本选择不正确")
         dualBoard == null || dualBoard in 0..1 || throw HandlerException("双重模式设置不正确")

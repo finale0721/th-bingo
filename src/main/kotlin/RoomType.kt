@@ -62,6 +62,16 @@ sealed interface RoomType {
         room.banPick = null
         room.refreshManager1 = RefreshSpellManager()
         room.refreshManager1!!.init(SpellConfig.getSpellLeftCache())
+
+        // 初始化各选手的实际CD时间
+        val baseCdTime = (room.roomConfig.cdTime ?: 0).toLong() * 1000L
+        val cdModifierA = (room.roomConfig.cdModifierA ?: 0).toLong() * 1000L
+        val cdModifierB = (room.roomConfig.cdModifierB ?: 0).toLong() * 1000L
+        room.actualCdTime[0] = (baseCdTime + cdModifierA).coerceAtLeast(1000L) // 最低1秒
+        room.actualCdTime[1] = (baseCdTime + cdModifierB).coerceAtLeast(1000L) // 最低1秒
+        // 最高为基础值的3倍
+        room.actualCdTime[0] = room.actualCdTime[0].coerceAtMost(baseCdTime * 3)
+        room.actualCdTime[1] = room.actualCdTime[1].coerceAtMost(baseCdTime * 3)
     }
 
     fun resetData(room: Room) {

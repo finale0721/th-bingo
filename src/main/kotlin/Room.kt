@@ -33,6 +33,9 @@ class Room(
     /** 上次收卡时间戳 */
     val lastGetTime = longArrayOf(0, 0)
 
+    /** 各选手的实际CD时间（基础CD + 修正值），单位：毫秒 */
+    val actualCdTime = longArrayOf(0, 0)
+
     /** 累计暂停时长，毫秒 */
     var totalPauseMs: Long = 0
 

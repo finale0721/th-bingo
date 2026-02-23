@@ -292,7 +292,7 @@ class AIAgent(private val room: Room) {
 
     /** 当AI完成一个格子后，等待冷却CD结束。 */
     private fun runCooldownLogic() {
-        val cdTimeMs = (room.roomConfig.cdTime ?: 0) * 1000L
+        val cdTimeMs = room.actualCdTime[aiPlayerIndex] // 使用AI的实际CD时间
         if (System.currentTimeMillis() >= room.lastGetTime[aiPlayerIndex] + cdTimeMs) {
             logger.debug("Cooldown finished.")
             currentState = AIState.IDLE
@@ -859,12 +859,13 @@ class AIAgent(private val room: Room) {
 
         // 2. 计算真正的小数部分差异
         val now = getCorrectedTime()
-        val cdTimeMs = (room.roomConfig.cdTime ?: 30) * 1000L
+        val cdTimeMs = room.actualCdTime[aiPlayerIndex] // 使用AI的实际CD时间
+        val opponentCdTimeMs = room.actualCdTime[humanPlayerIndex] // 使用对手的实际CD时间
         val turnDurationMs = (baselineTime * 1000 + cdTimeMs).toDouble()
 
         // 根据上次收卡时间，计算出下次行动开始的理论时间
         val aiNextActionTime = room.lastGetTime[aiPlayerIndex] + cdTimeMs
-        val opponentNextActionTime = room.lastGetTime[humanPlayerIndex] + cdTimeMs
+        val opponentNextActionTime = room.lastGetTime[humanPlayerIndex] + opponentCdTimeMs
 
         // **BUG FIX**: Determine the "Ready Time" - the earliest realistic moment a player can act.
         // A player's readiness cannot be in the past. If cooldown is over, they are ready NOW.
@@ -1029,9 +1030,10 @@ class AIAgent(private val room: Room) {
     /** 计算AI当前是否拥有“先手”优势。 */
     private fun calculateInitiativeState(): InitiativeState {
         val now = getCorrectedTime()
-        val cdTimeMs = (room.roomConfig.cdTime ?: 30) * 1000L
+        val cdTimeMs = room.actualCdTime[aiPlayerIndex] // 使用AI的实际CD时间
+        val opponentCdTimeMs = room.actualCdTime[humanPlayerIndex] // 使用对手的实际CD时间
         val myNextActionTime = room.lastGetTime[aiPlayerIndex] + cdTimeMs
-        val opponentNextActionTime = room.lastGetTime[humanPlayerIndex] + cdTimeMs
+        val opponentNextActionTime = room.lastGetTime[humanPlayerIndex] + opponentCdTimeMs
 
         if (now in myNextActionTime..<opponentNextActionTime) return InitiativeState.CLEAR
         if (now in opponentNextActionTime..<myNextActionTime) return InitiativeState.DANGEROUS
@@ -1067,7 +1069,7 @@ class AIAgent(private val room: Room) {
         // 核心：设置一个虚拟的“上次收卡时间”，使得AI必须等待 abandonPenaltyMs 才能再次行动。
         // 这个公式通过将“上次收卡时间”设置在 (当前逻辑时间 + 惩罚时间 - 标准CD) 之前，
         // 来巧妙地让 runCooldownLogic 的判断在 abandonPenaltyMs 之后才为真。
-        val cdTimeMs = (room.roomConfig.cdTime ?: 0) * 1000L
+        val cdTimeMs = room.actualCdTime[aiPlayerIndex] // 使用AI的实际CD时间
         room.lastGetTime[aiPlayerIndex] = getCorrectedTime() - cdTimeMs + abandonPenaltyMs
     }
 }
