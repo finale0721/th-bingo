@@ -28,6 +28,7 @@ object UpdateSpellStatusHandler : RequestHandler {
         val formerStatus = room.spellStatus!![idx]
         cardStateTransform(room, player, idx, spellStatus)
         room.type.updateSpellStatusPostProcesser(room, player, idx, formerStatus, spellStatus)
+        recordGetBoard(room, player, idx)
         room.type.pushSpells(room, idx, player.name)
         room.aiAgent?.onCellStatusChanged(idx, formerStatus, spellStatus)
         // Log the update action
@@ -69,6 +70,31 @@ object UpdateSpellStatusHandler : RequestHandler {
             // 其余情况，直接覆盖即可
             else -> {
                 room.spellStatus!![spellIdx] = stat
+            }
+        }
+    }
+
+    private fun recordGetBoard(room: Room, player: Player, spellIdx: Int) {
+        val st = room.spellStatus!![spellIdx]
+        if (st == LEFT_GET && room.normalData!!.whichBoardA == 0) {
+            room.normalData!!.getOnWhichBoard[spellIdx] = 0x1
+            if (room.normalData!!.isPortalA[spellIdx] == 1) {
+                room.normalData!!.whichBoardA = 1 - room.normalData!!.whichBoardA
+            }
+        } else if (st == LEFT_GET && room.normalData!!.whichBoardA == 1) {
+            room.normalData!!.getOnWhichBoard[spellIdx] = 0x2
+            if (room.normalData!!.isPortalB[spellIdx] == 1) {
+                room.normalData!!.whichBoardA = 1 - room.normalData!!.whichBoardA
+            }
+        } else if (st == RIGHT_GET && room.normalData!!.whichBoardB == 0) {
+            room.normalData!!.getOnWhichBoard[spellIdx] = 0x10
+            if (room.normalData!!.isPortalA[spellIdx] == 1) {
+                room.normalData!!.whichBoardB = 1 - room.normalData!!.whichBoardB
+            }
+        } else if (st == RIGHT_GET && room.normalData!!.whichBoardB == 1) {
+            room.normalData!!.getOnWhichBoard[spellIdx] = 0x20
+            if (room.normalData!!.isPortalB[spellIdx] == 1) {
+                room.normalData!!.whichBoardB = 1 - room.normalData!!.whichBoardB
             }
         }
     }
