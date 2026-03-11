@@ -3,6 +3,7 @@ package org.tfcc.bingo.message
 import io.netty.channel.ChannelHandlerContext
 import kotlinx.serialization.json.*
 import org.tfcc.bingo.*
+import org.tfcc.bingo.admin.GameRecordStore
 
 object StopGameHandler : RequestHandler {
     @Throws(HandlerException::class)
@@ -20,6 +21,7 @@ object StopGameHandler : RequestHandler {
                 room.locked = false
             room.lastWinner = winner + 1
         }
+        GameRecordStore.saveFinishedGame(room, winner)
         room.started = false
         room.spells = null
         room.lastGetTime.indices.forEach { room.lastGetTime[it] = 0 }

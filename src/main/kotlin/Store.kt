@@ -1,6 +1,7 @@
 package org.tfcc.bingo
 
 import org.apache.logging.log4j.kotlin.logger
+import org.tfcc.bingo.admin.GameRecordStore
 import org.tfcc.bingo.message.*
 import java.io.*
 import java.util.*
@@ -31,6 +32,7 @@ object Store {
         }
         for ((roomId, room) in roomCache) {
             now - room.lastOperateMs >= 6 * 3600 * 1000 || continue // 只清除6小时以上无操作的房间
+            GameRecordStore.saveCleanupSnapshotIfNeeded(room)
             outdatedRooms.add(roomId)
             room.host?.let { outdatedPlayers.add(it.name) }
             room.players.forEach { p -> p?.let { outdatedPlayers.add(it.name) } }
