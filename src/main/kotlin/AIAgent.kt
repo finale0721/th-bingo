@@ -370,10 +370,10 @@ class AIAgent(private val room: Room) {
             }
             // 根据纯难度计算一个最小收率
             var minCapRate = 0f
-            if (spell.difficulty < 8.0f) {
-                minCapRate = 0.17f
+            if (spell.difficulty < 6.0f) {
+                minCapRate = 0.10f
             } else {
-                minCapRate = max(0.17f - (spell.difficulty - 8f) * .02f, 0f)
+                minCapRate = max(0.10f - (spell.difficulty - 6f) * .01f, 0f)
             }
             // 计算基础收率
             var baseCapRate = spell.maxCapRate + if (prefLevel > 0) (1f - spell.maxCapRate) * 0.33f * prefLevel else 0f
