@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.Room
+import org.tfcc.bingo.SpellStatus
 import org.tfcc.bingo.Store
 import org.tfcc.bingo.message.GameLog
 import java.io.File
@@ -41,8 +42,17 @@ object GameRecordStore {
         }
     }
 
+    fun validateScore(room: Room): Boolean {
+        var left = 0
+        room.spellStatus!!.forEach {
+            if (it == SpellStatus.LEFT_GET) left++
+            else if (it == SpellStatus.RIGHT_GET) left++
+        }
+        return left != 0
+    }
+
     fun saveFinishedGame(room: Room, winner: Int) {
-        if (room.score[0] == 0 && room.score[1] == 0) {
+        if (!validateScore(room)) {
             return
         }
         val gameLog = room.gameLogger?.getSerializedLog()
@@ -59,7 +69,7 @@ object GameRecordStore {
         if (!room.locked) {
             return
         }
-        if (room.score[0] == 0 && room.score[1] == 0) {
+        if (!validateScore(room)) {
             return
         }
         val gameLog = if (room.started) room.gameLogger?.getSerializedLog() else null
