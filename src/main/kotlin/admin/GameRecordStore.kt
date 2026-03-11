@@ -42,6 +42,9 @@ object GameRecordStore {
     }
 
     fun saveFinishedGame(room: Room, winner: Int) {
+        if (room.score[0] == 0 && room.score[1] == 0) {
+            return
+        }
         val gameLog = room.gameLogger?.getSerializedLog()
         val record = buildRecord(
             room = room,
