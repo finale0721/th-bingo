@@ -22,29 +22,37 @@ object Store {
 
     private fun clean() {
         logger.debug("开始清除过期缓存")
-        val now = System.currentTimeMillis()
-        val outdatedPlayers = HashSet<String>()
-        val outdatedRooms = HashSet<String>()
-        for ((playerName, player) in playerCache) {
-            player.room == null || continue // 只清除无房间的玩家
-            now - player.lastOperateMs >= 2 * 3600 * 1000 || continue // 只清除2小时以上无操作的玩家
-            outdatedPlayers.add(playerName)
-        }
-        for ((roomId, room) in roomCache) {
-            now - room.lastOperateMs >= 6 * 3600 * 1000 || continue // 只清除6小时以上无操作的房间
-            GameRecordStore.saveCleanupSnapshotIfNeeded(room)
-            outdatedRooms.add(roomId)
-            room.host?.let { outdatedPlayers.add(it.name) }
-            room.players.forEach { p -> p?.let { outdatedPlayers.add(it.name) } }
-            room.watchers.forEach { outdatedPlayers.add(it.name) }
-        }
-        for (playerName in outdatedPlayers) {
-            logger.info("玩家 $playerName 过期, 自动清除")
-            playerCache.remove(playerName)
-        }
-        for (roomId in outdatedRooms) {
-            logger.info("房间 $roomId 过期, 自动清除")
-            roomCache.remove(roomId)
+        try {
+            val now = System.currentTimeMillis()
+            val outdatedPlayers = HashSet<String>()
+            val outdatedRooms = HashSet<String>()
+            for ((playerName, player) in playerCache) {
+                player.room == null || continue // 只清除无房间的玩家
+                now - player.lastOperateMs >= 2 * 3600 * 1000 || continue // 只清除2小时以上无操作的玩家
+                outdatedPlayers.add(playerName)
+            }
+            for ((roomId, room) in roomCache) {
+                now - room.lastOperateMs >= 6 * 3600 * 1000 || continue // 只清除6小时以上无操作的房间
+                try {
+                    GameRecordStore.saveCleanupSnapshotIfNeeded(room)
+                } catch (e: Exception) {
+                    logger.error("Failed to save cleanup snapshot for room $roomId, continuing cleanup", e)
+                }
+                outdatedRooms.add(roomId)
+                room.host?.let { outdatedPlayers.add(it.name) }
+                room.players.forEach { p -> p?.let { outdatedPlayers.add(it.name) } }
+                room.watchers.forEach { outdatedPlayers.add(it.name) }
+            }
+            for (playerName in outdatedPlayers) {
+                logger.info("玩家 $playerName 过期, 自动清除")
+                playerCache.remove(playerName)
+            }
+            for (roomId in outdatedRooms) {
+                logger.info("房间 $roomId 过期, 自动清除")
+                roomCache.remove(roomId)
+            }
+        } catch (e: Exception) {
+            logger.error("Unexpected error while cleaning expired cache", e)
         }
     }
 
