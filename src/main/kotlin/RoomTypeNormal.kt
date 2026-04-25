@@ -6,8 +6,6 @@ import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.HandlerException
 import org.tfcc.bingo.message.NormalData
 import java.util.concurrent.ThreadLocalRandom
-import kotlin.math.abs
-import kotlin.math.min
 import kotlin.random.asKotlinRandom
 
 object RoomTypeNormal : RoomType {
@@ -125,20 +123,10 @@ object RoomTypeNormal : RoomType {
         rollSpellCard(room, starArray)
         // only room.spells can be assigned in rollSpellCard, so spells2 can only copy from spells
         room.spells2 = room.spells!!.copyOf()
-        // calculate maximum approx diff
-        var targetDiff: Int
-        if (room.roomConfig.difficulty!! == 4) {
-            targetDiff = 52
-        } else {
-            val lv3count = room.spells!!.sumOf { abs(if (it.star == 3) 1 else 0) }
-            targetDiff = if (lv3count < 7) 26 + lv3count * 2 else min(40, 58 - lv3count * 2)
-        }
-        // generate another starArray
-        val spell2RankArray: IntArray = if (room.roomConfig.diffLevel < 0) {
-            rollSpellsStarArray(room.roomConfig.difficulty)
-        } else {
-            SimilarBoardGenerator.findMatrixB(starArray, (targetDiff * room.roomConfig.diffLevel + 2) / 5)
-        }
+        // generate another starArray: diffLevel -1 = random, 1..5 = tiered similarity
+        val spell2RankArray = SimilarBoardGenerator.findMatrixB(
+            starArray, room.roomConfig.diffLevel, room.boardSpec
+        )
         // reassign room.spells
         rollSpellCard(room, spell2RankArray)
         room.refreshManager2 = RefreshSpellManager()

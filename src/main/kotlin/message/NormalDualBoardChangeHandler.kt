@@ -29,7 +29,7 @@ object NormalDualBoardChangeHandler : RequestHandler {
         } else if (playerIndex == 1) {
             room.normalData!!.whichBoardB = targetBoardIndex % 2
         }
-        if (isHost){
+        if (isHost) {
             room.push(
                 "push_normal_dual_board_change", JsonObject(
                     mapOf(
