@@ -13,8 +13,8 @@ object SetDebugSpellsHandler : RequestHandler {
         room.isHost(player) || throw HandlerException("没有权限")
         if (spells == null) {
             room.debugSpells = null
-        } else if (spells.size == 25) {
-            room.debugSpells = IntArray(25) { spells[it].jsonPrimitive.int }
+        } else if (spells.size == room.boardArea) {
+            room.debugSpells = IntArray(room.boardArea) { spells[it].jsonPrimitive.int }
         } else {
             throw HandlerException("符卡数量不正确")
         }

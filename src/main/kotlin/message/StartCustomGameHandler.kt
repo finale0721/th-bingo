@@ -53,7 +53,7 @@ object StartCustomGameHandler : RequestHandler {
             normalData.whichBoardB = 0
             normalData.isPortalA = msg.isPortalA.toTypedArray()
             normalData.isPortalB = msg.isPortalB.toTypedArray()
-            normalData.getOnWhichBoard = Array(25) { 0 }
+            normalData.getOnWhichBoard = Array(room.boardArea) { 0 }
             room.normalData = normalData
         }
 

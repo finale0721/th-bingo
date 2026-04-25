@@ -11,9 +11,9 @@ object UpdateSpellStatusHandler : RequestHandler {
         val m = data!!.jsonObject
         val idx = m["index"]!!.jsonPrimitive.int
         val status = m["status"]!!.jsonPrimitive.int
-        idx in 0..24 || throw HandlerException("idx超出范围")
-        val spellStatus = status.toSpellStatus()
         val room = player.room ?: throw HandlerException("不在房间里")
+        room.boardSpec.isValidIndex(idx) || throw HandlerException("idx超出范围")
+        val spellStatus = status.toSpellStatus()
         room.started || throw HandlerException("游戏还没开始")
         if (room.host != null) { // 自己是房主则有权限
             room.host === player || throw HandlerException("没有权限")

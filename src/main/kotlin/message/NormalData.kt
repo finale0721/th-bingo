@@ -2,6 +2,7 @@ package org.tfcc.bingo.message
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import org.tfcc.bingo.BoardSpec
 
 @Serializable
 class NormalData {
@@ -23,4 +24,14 @@ class NormalData {
     // 0x1: Left在A面收取 0x2: Left, B; Right = Left << 4
     @SerialName("get_on_which_board")
     var getOnWhichBoard = Array(25) { 0 }
+
+    companion object {
+        fun create(board: BoardSpec): NormalData {
+            val data = NormalData()
+            data.isPortalA = Array(board.area) { 0 }
+            data.isPortalB = Array(board.area) { 0 }
+            data.getOnWhichBoard = Array(board.area) { 0 }
+            return data
+        }
+    }
 }

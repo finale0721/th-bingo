@@ -33,10 +33,11 @@ data class StartCustomGameMessage(
     val isPortalB: List<Int>
 ) {
     fun validate() {
-        if (spells.size != 25) throw HandlerException("盘面A符卡数量不正确")
+        val boardArea = roomConfig.boardSize * roomConfig.boardSize
+        if (spells.size != boardArea) throw HandlerException("盘面A符卡数量不正确")
         if (roomConfig.dualBoard > 0) {
-            if (spells2 == null || spells2.size != 25) throw HandlerException("盘面B符卡数量不正确")
+            if (spells2 == null || spells2.size != boardArea) throw HandlerException("盘面B符卡数量不正确")
         }
-        if (spellStatus.size != 25) throw HandlerException("状态数据长度不正确")
+        if (spellStatus.size != boardArea) throw HandlerException("状态数据长度不正确")
     }
 }

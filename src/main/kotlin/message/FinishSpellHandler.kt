@@ -10,9 +10,9 @@ object FinishSpellHandler : RequestHandler {
     override fun handle(ctx: ChannelHandlerContext, player: Player, data: JsonElement?): JsonElement? {
         val m = data!!.jsonObject
         val idx = m["index"]!!.jsonPrimitive.int
-        idx in 0..24 || throw HandlerException("idx超出范围")
         val success = m["success"]?.jsonPrimitive?.booleanOrNull ?: true
         val room = player.room ?: throw HandlerException("不在房间里")
+        room.boardSpec.isValidIndex(idx) || throw HandlerException("idx超出范围")
         room.started || throw HandlerException("游戏还没开始")
         var playerIndex = room.players.indexOf(player)
         val isHost = room.isHost(player)

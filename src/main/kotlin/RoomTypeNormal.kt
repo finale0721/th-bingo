@@ -15,9 +15,10 @@ object RoomTypeNormal : RoomType {
 
     override val canPause = true
 
-    val spellStatusBackup = Array(25) { NONE }
+    var spellStatusBackup = Array(25) { NONE }
 
     override fun onStart(room: Room) {
+        spellStatusBackup = Array(room.boardArea) { NONE }
         room.normalData = NormalData()
         room.spells2 = emptyArray()
         if (room.roomConfig.dualBoard > 0) {

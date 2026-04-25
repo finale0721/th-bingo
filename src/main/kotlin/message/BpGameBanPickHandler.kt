@@ -15,8 +15,8 @@ object BpGameBanPickHandler : RequestHandler {
     override fun handle(ctx: ChannelHandlerContext, player: Player, data: JsonElement?): JsonElement? {
         val m = data!!.jsonObject
         val idx = m["idx"]!!.jsonPrimitive.int
-        idx in 0..24 || throw HandlerException("idx超出范围")
         val room = player.room ?: throw HandlerException("不在房间里")
+        room.boardSpec.isValidIndex(idx) || throw HandlerException("idx超出范围")
         val playerIndex = room.players.indexOf(player)
         playerIndex >= 0 || throw HandlerException("你不是玩家")
         room.bpData!!.whoseTurn == playerIndex || throw HandlerException("不是你的回合")

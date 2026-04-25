@@ -10,8 +10,8 @@ object CancelSelectSpellHandler : RequestHandler {
     override fun handle(ctx: ChannelHandlerContext, player: Player, data: JsonElement?): JsonElement? {
         val m = data!!.jsonObject
         val idx = m["index"]!!.jsonPrimitive.int
-        idx in 0..24 || throw HandlerException("idx超出范围")
         val room = player.room ?: throw HandlerException("不在房间里")
+        room.boardSpec.isValidIndex(idx) || throw HandlerException("idx超出范围")
         room.started || throw HandlerException("游戏还没开始")
         val playerIndex = room.players.indexOf(player)
         playerIndex >= 0 || throw HandlerException("没有权限")

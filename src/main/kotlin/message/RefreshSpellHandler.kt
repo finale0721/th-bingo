@@ -30,7 +30,7 @@ object RefreshSpellHandler : RequestHandler {
         val boardIdx = m["board_idx"]!!.jsonPrimitive.int
         val spellIdx = m["spell_idx"]!!.jsonPrimitive.int
         boardIdx in 0..1 || throw HandlerException("版面选择超出范围")
-        spellIdx in 0..24 || throw HandlerException("符卡选择超出范围")
+        room.boardSpec.isValidIndex(spellIdx) || throw HandlerException("符卡选择超出范围")
 
         val spell = if (boardIdx == 0) room.spells?.get(spellIdx) else room.spells2?.get(spellIdx)
         val newSpell = if (boardIdx == 0) spell?.let { room.refreshManager1?.refreshSpell(it) }
