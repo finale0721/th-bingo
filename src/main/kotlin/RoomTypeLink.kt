@@ -13,11 +13,15 @@ object RoomTypeLink : RoomType {
     override val canPause = false
 
     override fun onStart(room: Room) {
-        room.spellStatus!![0] = LEFT_SELECT
-        room.spellStatus!![4] = RIGHT_SELECT
+        val board = room.boardSpec
+        val topLeft = board.index(0, 0)
+        val topRight = board.index(0, board.size - 1)
+        room.spellStatus!![topLeft] = LEFT_SELECT
+        room.spellStatus!![topRight] = RIGHT_SELECT
         val linkData = LinkData()
-        linkData.linkIdxA.add(0)
-        linkData.linkIdxB.add(4)
+        linkData.boardSize = board.size
+        linkData.linkIdxA.add(topLeft)
+        linkData.linkIdxB.add(topRight)
         room.linkData = linkData
     }
 
@@ -40,6 +44,7 @@ object RoomTypeLink : RoomType {
     override fun handleSelectSpell(room: Room, playerIndex: Int, spellIndex: Int) {
         playerIndex >= 0 || throw HandlerException("不是玩家，不能操作")
         val st = room.spellStatus!![spellIndex]
+        val board = room.boardSpec
         val status =
             if (playerIndex == 0) LEFT_SELECT
             else RIGHT_SELECT
@@ -53,7 +58,8 @@ object RoomTypeLink : RoomType {
                     if (spellIndex in room.linkData!!.linkIdxA)
                         throw HandlerException("已经选了这张卡")
                     val idx0 = room.linkData!!.linkIdxA.last()
-                    if (idx0 == 24 || !(spellIndex near idx0))
+                    val bottomRight = board.index(board.size - 1, board.size - 1)
+                    if (idx0 == bottomRight || !spellIndex.isNear(idx0, board))
                         throw HandlerException("不合理的选卡")
                     room.linkData!!.linkIdxA.add(spellIndex)
                     room.spellStatus!![spellIndex] =
@@ -72,7 +78,8 @@ object RoomTypeLink : RoomType {
                     if (room.linkData!!.linkIdxB.contains(spellIndex))
                         throw HandlerException("已经选了这张卡")
                     val idx0 = room.linkData!!.linkIdxB.last()
-                    if (idx0 == 20 || !(spellIndex near idx0))
+                    val bottomLeft = board.index(board.size - 1, 0)
+                    if (idx0 == bottomLeft || !spellIndex.isNear(idx0, board))
                         throw HandlerException("不合理的选卡")
                     room.linkData!!.linkIdxB.add(spellIndex)
                     room.spellStatus!![spellIndex] =
@@ -138,12 +145,13 @@ object RoomTypeLink : RoomType {
         }
     }
 
-    private infix fun Int.near(other: Int): Boolean {
-        when (this % 5) {
+    private fun Int.isNear(other: Int, board: BoardSpec): Boolean {
+        val s = board.size
+        when (this % s) {
             0 -> if (other == this - 1) return false
-            4 -> if (other == this + 1) return false
+            s - 1 -> if (other == this + 1) return false
         }
         val diff = abs(this - other)
-        return diff == 1 || diff == 4 || diff == 5 || diff == 6
+        return diff == 1 || diff == s - 1 || diff == s || diff == s + 1
     }
 }

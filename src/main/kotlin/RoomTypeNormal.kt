@@ -37,81 +37,57 @@ object RoomTypeNormal : RoomType {
 
     private fun handleBlindSettings(room: Room) {
         room.spellStatus = Array(room.spells!!.size) { BOTH_HIDDEN }
-        val outerRingIndex = arrayOf(0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
-        val innerRingIndex = arrayOf(6, 7, 8, 11, 13, 16, 17, 18)
+        val board = room.boardSpec
+        val allIndices = (0 until board.area).toMutableList()
         val rand = ThreadLocalRandom.current().asKotlinRandom()
-        outerRingIndex.shuffle(rand)
-        innerRingIndex.shuffle(rand)
+        allIndices.shuffle(rand)
+        val scale = board.area / 25.0
 
         if (room.roomConfig.blindSetting == 2) {
-            val reveal = Array(5) { IntArray(4) }
-            // 外环单独，外环共有，内环单独，内环共有
-            reveal[0] = intArrayOf(0, 0, 0, 0)
-            reveal[1] = intArrayOf(2, 1, 1, 0)
-            reveal[2] = intArrayOf(3, 2, 2, 1)
-            reveal[3] = intArrayOf(4, 4, 2, 2)
-            reveal[4] = intArrayOf(5, 4, 3, 2)
+            // leftOnly, rightOnly, bothSee — 5x5 base counts, scaled by board area
+            val reveal = arrayOf(
+                intArrayOf(0, 0, 0),
+                intArrayOf(3, 3, 1),
+                intArrayOf(5, 5, 2),
+                intArrayOf(6, 6, 4),
+                intArrayOf(8, 8, 4)
+            )
             val level = room.roomConfig.blindRevealLevel
-            var index = 0
-            // 外环
-            for (i in 0 until reveal[level][0]) {
-                room.spellStatus!![outerRingIndex[i]] = LEFT_SEE_ONLY
+            val leftCount = (reveal[level][0] * scale).toInt()
+            val rightCount = (reveal[level][1] * scale).toInt()
+            val bothCount = (reveal[level][2] * scale).toInt()
+            var idx = 0
+            for (i in 0 until leftCount) {
+                room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY
             }
-            index += reveal[level][0]
-            for (i in index until index + reveal[level][0]) {
-                room.spellStatus!![outerRingIndex[i]] = RIGHT_SEE_ONLY
+            for (i in 0 until rightCount) {
+                room.spellStatus!![allIndices[idx++]] = RIGHT_SEE_ONLY
             }
-            index += reveal[level][0]
-            for (i in index until index + reveal[level][1]) {
-                room.spellStatus!![outerRingIndex[i]] = NONE
-            }
-            // 内环
-            index = 0
-            for (i in 0 until reveal[level][2]) {
-                room.spellStatus!![innerRingIndex[i]] = LEFT_SEE_ONLY
-            }
-            index += reveal[level][2]
-            for (i in index until index + reveal[level][2]) {
-                room.spellStatus!![innerRingIndex[i]] = RIGHT_SEE_ONLY
-            }
-            index += reveal[level][2]
-            for (i in index until index + reveal[level][3]) {
-                room.spellStatus!![innerRingIndex[i]] = NONE
+            for (i in 0 until bothCount) {
+                room.spellStatus!![allIndices[idx++]] = NONE
             }
         } else if (room.roomConfig.blindSetting == 3) {
-            val reveal = Array(5) { IntArray(6) }
-            // 外环作品，内环面数，外环作品，内环面数，外环全部，内环全部
-            reveal[0] = intArrayOf(8, 4, 0, 0, 0, 0)
-            reveal[1] = intArrayOf(16, 8, 0, 0, 0, 0)
-            reveal[2] = intArrayOf(8, 4, 8, 4, 0, 0)
-            reveal[3] = intArrayOf(0, 0, 16, 8, 0, 0)
-            reveal[4] = intArrayOf(0, 0, 12, 6, 4, 2)
+            // gameOnly, stageOnly, bothReveal — 5x5 base counts, scaled by board area
+            val reveal = arrayOf(
+                intArrayOf(12, 0, 0),
+                intArrayOf(24, 0, 0),
+                intArrayOf(12, 12, 0),
+                intArrayOf(0, 24, 0),
+                intArrayOf(0, 18, 6)
+            )
             val level = room.roomConfig.blindRevealLevel
-            // 外环
-            var index = 0
-            for (i in 0 until reveal[level][0]) {
-                room.spellStatus!![outerRingIndex[i]] = ONLY_REVEAL_GAME
+            val gameCount = (reveal[level][0] * scale).toInt()
+            val stageCount = (reveal[level][1] * scale).toInt()
+            val bothCount = (reveal[level][2] * scale).toInt()
+            var idx = 0
+            for (i in 0 until gameCount) {
+                room.spellStatus!![allIndices[idx++]] = ONLY_REVEAL_GAME
             }
-            index += reveal[level][0]
-            for (i in index until index + reveal[level][2]) {
-                room.spellStatus!![outerRingIndex[i]] = ONLY_REVEAL_GAME_STAGE
+            for (i in 0 until stageCount) {
+                room.spellStatus!![allIndices[idx++]] = ONLY_REVEAL_GAME_STAGE
             }
-            index += reveal[level][2]
-            for (i in index until index + reveal[level][4]) {
-                room.spellStatus!![outerRingIndex[i]] = NONE
-            }
-            // 内环
-            index = 0
-            for (i in 0 until reveal[level][1]) {
-                room.spellStatus!![innerRingIndex[i]] = ONLY_REVEAL_GAME
-            }
-            index += reveal[level][1]
-            for (i in index until index + reveal[level][3]) {
-                room.spellStatus!![innerRingIndex[i]] = ONLY_REVEAL_GAME_STAGE
-            }
-            index += reveal[level][3]
-            for (i in index until index + reveal[level][5]) {
-                room.spellStatus!![innerRingIndex[i]] = NONE
+            for (i in 0 until bothCount) {
+                room.spellStatus!![allIndices[idx++]] = NONE
             }
         }
         room.spellStatus!!.forEachIndexed { index, status -> spellStatusBackup[index] = status }
@@ -132,31 +108,20 @@ object RoomTypeNormal : RoomType {
         room.refreshManager2 = RefreshSpellManager()
         room.refreshManager2!!.init(SpellConfig.getSpellLeftCache())
 
-        // 转换格设定
+        // 传送格设定：全盘均匀随机
         val rand = ThreadLocalRandom.current().asKotlinRandom()
-        val outerRingIndex = arrayOf(0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
-        val innerRingIndex = arrayOf(6, 7, 8, 11, 12, 13, 16, 17, 18)
-        val innerCount = room.roomConfig.portalCount * 9 / 25
-        val icp = if ((rand.nextInt(0, 65536) / 65536.0f)
-            < (room.roomConfig.portalCount * 9.0f / 25.0f - innerCount)) 1 else 0
-        val outerCount = room.roomConfig.portalCount - innerCount - icp
+        val board = room.boardSpec
+        val portalCount = (room.roomConfig.portalCount * board.area / 25.0).toInt().coerceAtMost(board.area)
+        val allIndices = (0 until board.area).toMutableList()
 
-        outerRingIndex.shuffle(rand)
-        innerRingIndex.shuffle(rand)
-        for (i in 0 until outerCount) {
-            room.normalData!!.isPortalA[outerRingIndex[i]] = 1
-        }
-        for (i in 0 until innerCount + icp) {
-            room.normalData!!.isPortalA[innerRingIndex[i]] = 1
+        allIndices.shuffle(rand)
+        for (i in 0 until portalCount) {
+            room.normalData!!.isPortalA[allIndices[i]] = 1
         }
 
-        outerRingIndex.shuffle(rand)
-        innerRingIndex.shuffle(rand)
-        for (i in 0 until outerCount) {
-            room.normalData!!.isPortalB[outerRingIndex[i]] = 1
-        }
-        for (i in 0 until innerCount + icp) {
-            room.normalData!!.isPortalB[innerRingIndex[i]] = 1
+        allIndices.shuffle(rand)
+        for (i in 0 until portalCount) {
+            room.normalData!!.isPortalB[allIndices[i]] = 1
         }
     }
 

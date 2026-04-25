@@ -29,6 +29,12 @@ class LinkData {
     @SerialName("event_b")
     var eventB = 0
 
-    fun selectCompleteA() = (eventA > 0 || eventB > 0) && linkIdxA.last() == 24
-    fun selectCompleteB() = (eventA > 0 || eventB > 0) && linkIdxB.last() == 20
+    @Transient
+    var boardSize: Int = 5
+
+    private val bottomRight: Int get() = boardSize * boardSize - 1
+    private val bottomLeft: Int get() = boardSize * (boardSize - 1)
+
+    fun selectCompleteA() = (eventA > 0 || eventB > 0) && linkIdxA.last() == bottomRight
+    fun selectCompleteB() = (eventA > 0 || eventB > 0) && linkIdxB.last() == bottomLeft
 }

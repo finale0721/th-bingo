@@ -28,44 +28,32 @@ object RoomTypeBP : RoomType {
     private fun handleBlindSettings(room: Room) {
         if (room.roomConfig.blindSetting == 2) {
             room.spellStatus = Array(room.spells!!.size) { BOTH_HIDDEN }
-            val outerRingIndex = arrayOf(0, 1, 2, 3, 4, 5, 9, 10, 14, 15, 19, 20, 21, 22, 23, 24)
-            val innerRingIndex = arrayOf(6, 7, 8, 11, 13, 16, 17, 18)
+            val board = room.boardSpec
+            val allIndices = (0 until board.area).toMutableList()
             val rand = ThreadLocalRandom.current().asKotlinRandom()
-            outerRingIndex.shuffle(rand)
-            innerRingIndex.shuffle(rand)
-            val reveal = Array(5) { IntArray(4) }
-            // 外环单独，外环共有，内环单独，内环共有
-            reveal[0] = intArrayOf(0, 0, 0, 0)
-            reveal[1] = intArrayOf(2, 1, 1, 1)
-            reveal[2] = intArrayOf(3, 2, 1, 1)
-            reveal[3] = intArrayOf(5, 2, 2, 2)
-            reveal[4] = intArrayOf(6, 4, 3, 2)
+            allIndices.shuffle(rand)
+            // leftOnly, rightOnly, bothSee — 5x5 base counts (BP), scaled by board area
+            val reveal = arrayOf(
+                intArrayOf(0, 0, 0),
+                intArrayOf(3, 3, 2),
+                intArrayOf(4, 4, 3),
+                intArrayOf(7, 7, 4),
+                intArrayOf(9, 9, 6)
+            )
             val level = room.roomConfig.blindRevealLevel
-            var index = 0
-            // 外环
-            for (i in 0 until reveal[level][0]) {
-                room.spellStatus!![outerRingIndex[i]] = LEFT_SEE_ONLY
+            val scale = board.area / 25.0
+            val leftCount = (reveal[level][0] * scale).toInt()
+            val rightCount = (reveal[level][1] * scale).toInt()
+            val bothCount = (reveal[level][2] * scale).toInt()
+            var idx = 0
+            for (i in 0 until leftCount) {
+                room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY
             }
-            index += reveal[level][0]
-            for (i in index until index + reveal[level][0]) {
-                room.spellStatus!![outerRingIndex[i]] = RIGHT_SEE_ONLY
+            for (i in 0 until rightCount) {
+                room.spellStatus!![allIndices[idx++]] = RIGHT_SEE_ONLY
             }
-            index += reveal[level][0]
-            for (i in index until index + reveal[level][1]) {
-                room.spellStatus!![outerRingIndex[i]] = NONE
-            }
-            // 内环
-            index = 0
-            for (i in 0 until reveal[level][2]) {
-                room.spellStatus!![innerRingIndex[i]] = LEFT_SEE_ONLY
-            }
-            index += reveal[level][2]
-            for (i in index until index + reveal[level][2]) {
-                room.spellStatus!![innerRingIndex[i]] = RIGHT_SEE_ONLY
-            }
-            index += reveal[level][2]
-            for (i in index until index + reveal[level][3]) {
-                room.spellStatus!![innerRingIndex[i]] = NONE
+            for (i in 0 until bothCount) {
+                room.spellStatus!![allIndices[idx++]] = NONE
             }
         } else if (room.roomConfig.blindSetting == 3) {
             room.spellStatus = Array(room.spells!!.size) { ONLY_REVEAL_STAR }
