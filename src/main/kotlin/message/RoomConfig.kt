@@ -80,6 +80,15 @@ class RoomConfig(
     /** 自定义等级数量 */
     @SerialName("custom_level_count")
     val customLevelCount: Array<Int>,
+    /** 棋盘边长，4x4/5x5/6x6 */
+    @SerialName("board_size")
+    val boardSize: Int = 5,
+    /** 6x6额外连线数量 */
+    @SerialName("extra_line_count")
+    val extraLineCount: Int = 0,
+    /** 自定义难度是否采用4/5级固定生成机制 */
+    @SerialName("use_fixed_high_level_layout")
+    val useFixedHighLevelLayout: Boolean = true,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -106,7 +115,14 @@ class RoomConfig(
         gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
         aiPreference.values.all { it in -2..2 } || throw HandlerException("AI作品修正数值范围应为-2~2")
         customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
-        customLevelCount.all { it in 0..25 } || throw HandlerException("自定义等级数量数值范围应为0~25")
+        customLevelCount.all { it in 0..(boardSize * boardSize) } ||
+            throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
+        boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
+        (type == 1 || boardSize == 5) || throw HandlerException("非标准赛仅支持5x5棋盘")
+        (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
+        portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
+        (extraLineCount == 0 || (boardSize == 6 && type == 1)) || throw HandlerException("额外连线仅支持6x6标准赛")
+        extraLineCount in 0..3 || throw HandlerException("额外连线数量应为0~3")
     }
 
     operator fun plus(config: RoomConfigNullable): RoomConfig {
@@ -137,7 +153,10 @@ class RoomConfig(
             customLevelCount = config.customLevelCount ?: customLevelCount,
             aiTemperature = config.aiTemperature ?: aiTemperature,
             cdModifierA = config.cdModifierA ?: cdModifierA,
-            cdModifierB = config.cdModifierB ?: cdModifierB
+            cdModifierB = config.cdModifierB ?: cdModifierB,
+            boardSize = config.boardSize ?: boardSize,
+            extraLineCount = config.extraLineCount ?: extraLineCount,
+            useFixedHighLevelLayout = config.useFixedHighLevelLayout ?: useFixedHighLevelLayout
         )
     }
 }
@@ -218,7 +237,16 @@ class RoomConfigNullable(
     val aiPreference: HashMap<String, Int>? = null,
     /** 自定义等级数量 */
     @SerialName("custom_level_count")
-    val customLevelCount: Array<Int>? = null
+    val customLevelCount: Array<Int>? = null,
+    /** 棋盘边长，4x4/5x5/6x6 */
+    @SerialName("board_size")
+    val boardSize: Int? = null,
+    /** 6x6额外连线数量 */
+    @SerialName("extra_line_count")
+    val extraLineCount: Int? = null,
+    /** 自定义难度是否采用4/5级固定生成机制 */
+    @SerialName("use_fixed_high_level_layout")
+    val useFixedHighLevelLayout: Boolean? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -246,6 +274,11 @@ class RoomConfigNullable(
         aiPreference == null || aiPreference.values.all { it in -2..2 } ||
             throw HandlerException("AI作品修正数值范围应为-2~2")
         customLevelCount == null || customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
-        customLevelCount == null || customLevelCount.all { it in 0..25 } || throw HandlerException("自定义等级数量数值范围应为0~25")
+        boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
+        extraLineCount == null || extraLineCount in 0..3 || throw HandlerException("额外连线数量应为0~3")
+        customLevelCount == null || boardSize == null || customLevelCount.all { it in 0..(boardSize * boardSize) } ||
+            throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
+        portalCount == null || boardSize == null || portalCount in 1..(boardSize * boardSize) ||
+            throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
     }
 }

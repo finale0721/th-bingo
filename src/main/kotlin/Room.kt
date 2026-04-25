@@ -65,6 +65,12 @@ class Room(
 
     /** 最后一次操作的时间戳，毫秒，业务逻辑中请勿修改此字段 */
     var lastOperateMs: Long = 0
+    val boardSpec: BoardSpec
+        get() = BoardSpec(roomConfig.boardSize)
+
+    val boardArea: Int
+        get() = boardSpec.area
+
     val type
         get() = when (roomConfig.type) {
             1 -> RoomTypeNormal
