@@ -12,6 +12,7 @@ object StartGameHandler : RequestHandler {
         room.isHost(player) || throw HandlerException("没有权限")
         !room.started || throw HandlerException("游戏已经开始")
         room.players.all { it != null } || throw HandlerException("玩家没满")
+        room.roomConfig.validate()
         // 执行随机符卡与状态设定
         room.type.resetData(room)
         room.type.setUp(room)
