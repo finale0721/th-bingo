@@ -11,7 +11,9 @@ object UpdateRoomConfigHandler : RequestHandler {
         m.rid == room.roomId || throw HandlerException("不是你所在的房间")
         room.isHost(player) || throw HandlerException("没有权限")
         m.validate()
-        room.roomConfig += m
+        val next = room.roomConfig + m
+        next.validate()
+        room.roomConfig = next
         room.push("push_update_room_config", room.roomConfig.encode())
         return null
     }
