@@ -39,5 +39,9 @@ data class StartCustomGameMessage(
             if (spells2 == null || spells2.size != boardArea) throw HandlerException("盘面B符卡数量不正确")
         }
         if (spellStatus.size != boardArea) throw HandlerException("状态数据长度不正确")
+        if (roomConfig.dualBoard > 0) {
+            if (isPortalA.size != boardArea) throw HandlerException("传送门A数据长度不正确")
+            if (isPortalB.size != boardArea) throw HandlerException("传送门B数据长度不正确")
+        }
     }
 }
