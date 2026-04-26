@@ -15,17 +15,19 @@ sealed interface RoomType {
         SpellConfig.setWeightDict(room.roomConfig.gameWeight)
         val start = System.currentTimeMillis()
         var retryCount = 0
+        val boardSize = room.roomConfig.boardSize
+        val useFixedHighLevelLayout = room.roomConfig.useFixedHighLevelLayout
         while (true) {
             try {
                 if (stars == null) {
                     room.spells = room.type.randSpells(
                         room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty
+                        room.roomConfig.ranks, room.roomConfig.difficulty, boardSize, useFixedHighLevelLayout
                     )
                 } else {
                     room.spells = room.type.randSpellsWithStar(
                         room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, stars
+                        room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize, useFixedHighLevelLayout
                     )
                 }
                 break
@@ -95,7 +97,14 @@ sealed interface RoomType {
     val canPause: Boolean
 
     @Throws(HandlerException::class)
-    fun randSpells(spellCardVersion: Int, games: Array<String>, ranks: Array<String>, difficulty: Int?): Array<Spell>
+    fun randSpells(
+        spellCardVersion: Int,
+        games: Array<String>,
+        ranks: Array<String>,
+        difficulty: Int?,
+        boardSize: Int = 5,
+        useFixedHighLevelLayout: Boolean = true
+    ): Array<Spell>
 
     @Throws(HandlerException::class)
     fun randSpellsWithStar(
@@ -103,12 +112,14 @@ sealed interface RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        stars: IntArray?
+        stars: IntArray?,
+        boardSize: Int = 5,
+        useFixedHighLevelLayout: Boolean = true
     ): Array<Spell> {
-        return randSpells(spellCardVersion, games, ranks, difficulty)
+        return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout)
     }
 
-    fun rollSpellsStarArray(difficulty: Int?): IntArray {
+    fun rollSpellsStarArray(difficulty: Int?, boardSize: Int = 5, useFixedHighLevelLayout: Boolean = true): IntArray {
         return intArrayOf()
     }
 

@@ -184,18 +184,41 @@ object SpellFactory {
         games: Array<String>,
         ranks: Array<String>?,
         difficulty: Difficulty,
-        boardSize: Int = 5
+        boardSize: Int = 5,
+        useFixedHighLevelLayout: Boolean = true
     ): Array<Spell> {
-        val starArray = randSpellsStarArray(difficulty, boardSize)
+        val starArray = randSpellsStarArray(difficulty, boardSize, useFixedHighLevelLayout)
         return randSpellsWithStar(spellCardVersion, games, ranks, starArray, boardSize)
     }
 
     @Throws(HandlerException::class)
-    fun randSpellsStarArray(difficulty: Difficulty, boardSize: Int = 5): IntArray {
+    fun randSpellsStarArray(difficulty: Difficulty, boardSize: Int = 5, useFixedHighLevelLayout: Boolean = true): IntArray {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
-        val lvCount = difficulty.value
         val highCount = board.size
+        val lvCount = if (boardSize == 5) {
+            difficulty.value
+        } else {
+            when (difficulty) {
+                Difficulty.E -> DifficultyProfile.E.counts(boardSize)
+                Difficulty.N -> DifficultyProfile.N.counts(boardSize)
+                Difficulty.L -> DifficultyProfile.L.counts(boardSize)
+                else -> {
+                    // Difficulty.random() generates 5x5 low-star counts summing to 20; scale to target
+                    DifficultyProfile.scaleCounts(difficulty.value, board.area - highCount)
+                }
+            }
+        }
+
+        if (!useFixedHighLevelLayout) {
+            // Uniform random shuffle: no positional constraints for high-star cards
+            val allStars = IntArray(lvCount[0]) { 1 } +
+                IntArray(lvCount[1]) { 2 } +
+                IntArray(lvCount[2]) { 3 } +
+                IntArray(highCount - 1) { 4 } + IntArray(1) { 5 }
+            allStars.shuffle(rand)
+            return allStars
+        }
 
         return buildStarArrayWithHighLevel(
             board,
@@ -243,10 +266,19 @@ object SpellFactory {
 
     @Throws(HandlerException::class)
     fun randSpellsODStarArray(difficulty: Int, boardSize: Int = 5): IntArray {
-        val da = when (difficulty) {
-            4 -> Difficulty.OD.value
-            5 -> Difficulty.ODP.value
-            else -> Difficulty.LDefault.value
+        val da = if (boardSize == 5) {
+            when (difficulty) {
+                4 -> Difficulty.OD.value
+                5 -> Difficulty.ODP.value
+                else -> Difficulty.LDefault.value
+            }
+        } else {
+            val profile = when (difficulty) {
+                4 -> DifficultyProfile.OD
+                5 -> DifficultyProfile.ODP
+                else -> DifficultyProfile.LDefault
+            }
+            profile.counts(boardSize)
         }
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)

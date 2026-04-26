@@ -30,7 +30,14 @@ object RoomTypeLink : RoomType {
     }
 
     @Throws(HandlerException::class)
-    override fun randSpells(spellCardVersion: Int, games: Array<String>, ranks: Array<String>, difficulty: Int?): Array<Spell> {
+    override fun randSpells(
+        spellCardVersion: Int,
+        games: Array<String>,
+        ranks: Array<String>,
+        difficulty: Int?,
+        boardSize: Int,
+        useFixedHighLevelLayout: Boolean
+    ): Array<Spell> {
         return SpellFactory.randSpellsLink(
             spellCardVersion, games, ranks, when (difficulty) {
                 1 -> Difficulty.E

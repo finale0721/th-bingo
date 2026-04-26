@@ -28,9 +28,13 @@ object RoomTypeNormal : RoomType {
         // 6x6 extra lines — single copy shared by both boards
         if (room.boardSpec.size == 6 && room.roomConfig.extraLineCount > 0) {
             val rand = ThreadLocalRandom.current().asKotlinRandom()
-            room.normalData!!.extraLines = room.boardSpec.generateExtraLines(
-                room.roomConfig.extraLineCount, rand
-            )
+            try {
+                room.normalData!!.extraLines = room.boardSpec.generateExtraLines(
+                    room.roomConfig.extraLineCount, rand
+                )
+            } catch (e: IllegalStateException) {
+                throw HandlerException("额外连线生成失败：${e.message}")
+            }
         }
 
         if (room.roomConfig.useAI && room.players[1]!!.name.equals(Store.ROBOT_NAME)) {
@@ -102,7 +106,11 @@ object RoomTypeNormal : RoomType {
 
     private fun handleDualExistRandomCardSettings(room: Room) {
         // rewrite the roll spell logic. We generate spellStarArray by individual calls
-        val starArray = rollSpellsStarArray(room.roomConfig.difficulty)
+        val starArray = rollSpellsStarArray(
+            room.roomConfig.difficulty,
+            room.roomConfig.boardSize,
+            room.roomConfig.useFixedHighLevelLayout
+        )
         rollSpellCard(room, starArray)
         // only room.spells can be assigned in rollSpellCard, so spells2 can only copy from spells
         room.spells2 = room.spells!!.copyOf()
@@ -137,16 +145,23 @@ object RoomTypeNormal : RoomType {
     }
 
     @Throws(HandlerException::class)
-    override fun randSpells(spellCardVersion: Int, games: Array<String>, ranks: Array<String>, difficulty: Int?): Array<Spell> {
+    override fun randSpells(
+        spellCardVersion: Int,
+        games: Array<String>,
+        ranks: Array<String>,
+        difficulty: Int?,
+        boardSize: Int,
+        useFixedHighLevelLayout: Boolean
+    ): Array<Spell> {
         difficulty?.let {
             if (it == 6) {
                 return SpellFactory.randSpellsCustom(
-                    spellCardVersion, games, ranks, difficulty
+                    spellCardVersion, games, ranks, difficulty, boardSize
                 )
             }
             if (it >= 4)
                 return SpellFactory.randSpellsOD(
-                    spellCardVersion, games, ranks, difficulty
+                    spellCardVersion, games, ranks, difficulty, boardSize
                 )
         }
         return SpellFactory.randSpells(
@@ -155,17 +170,17 @@ object RoomTypeNormal : RoomType {
                 2 -> Difficulty.N
                 3 -> Difficulty.L
                 else -> Difficulty.random()
-            }
+            }, boardSize, useFixedHighLevelLayout
         )
     }
 
-    override fun rollSpellsStarArray(difficulty: Int?): IntArray {
+    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, useFixedHighLevelLayout: Boolean): IntArray {
         difficulty?.let {
             if (it == 6) {
-                return SpellFactory.randSpellsCustomStarArray(Difficulty.settingCache)
+                return SpellFactory.randSpellsCustomStarArray(Difficulty.settingCache, boardSize)
             }
             if (it >= 4)
-                return SpellFactory.randSpellsODStarArray(difficulty)
+                return SpellFactory.randSpellsODStarArray(difficulty, boardSize)
         }
         return SpellFactory.randSpellsStarArray(
             when (difficulty) {
@@ -173,7 +188,7 @@ object RoomTypeNormal : RoomType {
                 2 -> Difficulty.N
                 3 -> Difficulty.L
                 else -> Difficulty.random()
-            }
+            }, boardSize, useFixedHighLevelLayout
         )
     }
 
@@ -182,24 +197,26 @@ object RoomTypeNormal : RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        stars: IntArray?
+        stars: IntArray?,
+        boardSize: Int,
+        useFixedHighLevelLayout: Boolean
     ): Array<Spell> {
         if (stars == null) {
-            return randSpells(spellCardVersion, games, ranks, difficulty)
+            return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout)
         }
         difficulty?.let {
             if (it == 6) {
                 return SpellFactory.randSpellsCustomWithStar(
-                    spellCardVersion, games, ranks, stars
+                    spellCardVersion, games, ranks, stars, boardSize
                 )
             }
             if (it >= 4)
                 return SpellFactory.randSpellsODWithStar(
-                    spellCardVersion, games, ranks, stars
+                    spellCardVersion, games, ranks, stars, boardSize
                 )
         }
         return SpellFactory.randSpellsWithStar(
-            spellCardVersion, games, ranks, stars
+            spellCardVersion, games, ranks, stars, boardSize
         )
     }
 

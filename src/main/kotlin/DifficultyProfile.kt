@@ -7,12 +7,13 @@ data class DifficultyProfile(
     fun counts(boardSize: Int): IntArray {
         return countsBySize[boardSize]
             ?: countsBySize[5]!!.let { base ->
-                scaleCounts(base, boardSize * boardSize)
+                // Scale low-star counts: total low = boardArea - highCount (highCount = boardSize)
+                scaleCounts(base, boardSize * boardSize - boardSize)
             }
     }
 
     companion object {
-        private fun scaleCounts(base: IntArray, targetTotal: Int): IntArray {
+        fun scaleCounts(base: IntArray, targetTotal: Int): IntArray {
             val baseTotal = base.sum()
             if (baseTotal == targetTotal) return base.copyOf()
             val result = IntArray(base.size)
