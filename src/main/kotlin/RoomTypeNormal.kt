@@ -6,6 +6,7 @@ import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.HandlerException
 import org.tfcc.bingo.message.NormalData
 import java.util.concurrent.ThreadLocalRandom
+import kotlin.math.roundToInt
 import kotlin.random.asKotlinRandom
 
 object RoomTypeNormal : RoomType {
@@ -64,9 +65,9 @@ object RoomTypeNormal : RoomType {
                 intArrayOf(8, 8, 4)
             )
             val level = room.roomConfig.blindRevealLevel
-            val leftCount = (reveal[level][0] * scale).toInt()
-            val rightCount = (reveal[level][1] * scale).toInt()
-            val bothCount = (reveal[level][2] * scale).toInt()
+            val leftCount = (reveal[level][0] * scale).roundToInt().coerceIn(0, board.area)
+            val rightCount = (reveal[level][1] * scale).roundToInt().coerceIn(0, board.area)
+            val bothCount = (reveal[level][2] * scale).roundToInt().coerceIn(0, board.area)
             var idx = 0
             for (i in 0 until leftCount) {
                 room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY
@@ -87,9 +88,9 @@ object RoomTypeNormal : RoomType {
                 intArrayOf(0, 18, 6)
             )
             val level = room.roomConfig.blindRevealLevel
-            val gameCount = (reveal[level][0] * scale).toInt()
-            val stageCount = (reveal[level][1] * scale).toInt()
-            val bothCount = (reveal[level][2] * scale).toInt()
+            val gameCount = (reveal[level][0] * scale).roundToInt().coerceIn(0, board.area)
+            val stageCount = (reveal[level][1] * scale).roundToInt().coerceIn(0, board.area)
+            val bothCount = (reveal[level][2] * scale).roundToInt().coerceIn(0, board.area)
             var idx = 0
             for (i in 0 until gameCount) {
                 room.spellStatus!![allIndices[idx++]] = ONLY_REVEAL_GAME
@@ -126,7 +127,7 @@ object RoomTypeNormal : RoomType {
         // 传送格设定：全盘均匀随机
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = room.boardSpec
-        val portalCount = (room.roomConfig.portalCount * board.area / 25.0).toInt().coerceAtMost(board.area)
+        val portalCount = room.roomConfig.portalCount
         val allIndices = (0 until board.area).toMutableList()
 
         allIndices.shuffle(rand)
