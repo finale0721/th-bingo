@@ -198,6 +198,7 @@ object SpellConfig {
      * @param upgrades rules for placeholder-star upgrade logic; empty = no upgrades (standard mode)
      * @param maxWeightStar the max star level for weight map initialization (6 for normal/OD, 4 for BPOD)
      * @param exDrawStar the star level used for weighted drawing of EX spells (6 for normal/OD, 4 for BPOD)
+     * @param priorityIndices exact board positions that must be drawn before all other cards.
      * @param priorityStars star values that should be drawn first before general fill (e.g. 4,5 for OD; 3 for BPOD)
      */
     private fun draw(
@@ -211,6 +212,7 @@ object SpellConfig {
         upgrades: List<UpgradeRule> = NO_UPGRADES,
         maxWeightStar: Int = 6,
         exDrawStar: Int = 6,
+        priorityIndices: Set<Int> = emptySet(),
         priorityStars: Set<Int> = emptySet(),
     ): Array<Spell> {
         val map = buildSpellMap(type, fileId, games, ranks, rand)
@@ -218,8 +220,21 @@ object SpellConfig {
         val result = arrayOfNulls<Spell>(stars.size)
         val weightMaps = buildWeightMaps(map, maxWeightStar)
 
+        // Phase 0: Draw fixed high-level positions before any other card generation.
+        for (i in priorityIndices) {
+            val star = stars[i]
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
+
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
+
+            result[i] = spell
+        }
+
         // Phase 1: Draw priority stars (e.g. 4★ and 5★ for OD, 3★ for BPOD)
         for (i in stars.indices) {
+            if (result[i] != null) continue
             val star = stars[i]
             if (star !in priorityStars) continue
 
@@ -287,8 +302,9 @@ object SpellConfig {
         ranks: Array<String>?,
         exPos: IntArray,
         stars: IntArray,
-        rand: Random
-    ): Array<Spell> = draw(type, fileId, games, ranks, exPos, stars, rand)
+        rand: Random,
+        priorityIndices: Set<Int> = emptySet(),
+    ): Array<Spell> = draw(type, fileId, games, ranks, exPos, stars, rand, priorityIndices = priorityIndices)
 
     /**
      * OD赛随符卡 (4/5★优先抽取，star=7/6升级降级逻辑)
@@ -300,10 +316,12 @@ object SpellConfig {
         ranks: Array<String>?,
         exPos: IntArray,
         stars: IntArray,
-        rand: Random
+        rand: Random,
+        priorityIndices: Set<Int> = emptySet(),
     ): Array<Spell> = draw(
         type, fileId, games, ranks, exPos, stars, rand,
         upgrades = OD_UPGRADES,
+        priorityIndices = priorityIndices,
         priorityStars = setOf(4, 5),
     )
 

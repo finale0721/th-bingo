@@ -35,14 +35,14 @@ object SpellFactory {
 
     /**
      * Generate high-level (4/5-star) placement positions using BoardSpec.
-     * Ensures exactly one high-star per row and column, with center always high-star.
+     * Ensures exactly one high-star per row and column.
+     * Odd boards place the center cell; even boards place two cells in the center 2x2.
      */
-    private fun highLevelPositions(board: BoardSpec, rand: Random): IntArray {
+    fun highLevelPositions(board: BoardSpec, rand: Random): IntArray {
         val size = board.size
         val perm = (0 until size).toMutableList()
         perm.shuffle(rand)
 
-        val centers = board.centerIndices()
         if (size % 2 == 1) {
             val mid = size / 2
             val centerCol = mid
@@ -69,7 +69,52 @@ object SpellFactory {
             }
         }
 
-        return IntArray(size) { row -> board.index(row, perm[row]) }
+        val positions = IntArray(size) { row -> board.index(row, perm[row]) }
+        validateHighLevelPositions(board, positions)
+        return positions
+    }
+
+    private fun validateHighLevelPositions(board: BoardSpec, positions: IntArray) {
+        val size = board.size
+        if (positions.size != size || positions.toSet().size != size) {
+            throw HandlerException("4/5星符卡数量不足")
+        }
+
+        val rows = BooleanArray(size)
+        val cols = BooleanArray(size)
+        for (position in positions) {
+            if (!board.isValidIndex(position)) {
+                throw HandlerException("4/5星符卡数量不足")
+            }
+            val row = board.row(position)
+            val col = board.col(position)
+            if (rows[row] || cols[col]) {
+                throw HandlerException("4/5星符卡数量不足")
+            }
+            rows[row] = true
+            cols[col] = true
+        }
+
+        if (!rows.all { it } || !cols.all { it }) {
+            throw HandlerException("4/5星符卡数量不足")
+        }
+
+        if (size % 2 == 1) {
+            if (board.index(size / 2, size / 2) !in positions) {
+                throw HandlerException("4/5星符卡数量不足")
+            }
+        } else {
+            val mid1 = size / 2 - 1
+            val mid2 = size / 2
+            val centerCount = positions.count {
+                val row = board.row(it)
+                val col = board.col(it)
+                (row == mid1 || row == mid2) && (col == mid1 || col == mid2)
+            }
+            if (centerCount != 2) {
+                throw HandlerException("4/5星符卡数量不足")
+            }
+        }
     }
 
     /**
@@ -92,13 +137,75 @@ object SpellFactory {
         return stars
     }
 
+    private fun usesFixedHighLevelLayout(mode: DifficultyMode): Boolean {
+        return mode == DifficultyMode.NORMAL ||
+            mode == DifficultyMode.OD ||
+            (mode == DifficultyMode.CUSTOM && Difficulty.settingCache[5] == 1)
+    }
+
+    private fun fixedHighLevelIndices(mode: DifficultyMode, stars: IntArray, board: BoardSpec): Set<Int> {
+        if (!usesFixedHighLevelLayout(mode)) return emptySet()
+        return fixedHighLevelIndices(stars, board)
+    }
+
+    fun fixedHighLevelIndices(stars: IntArray, board: BoardSpec): Set<Int> {
+        if (stars.size != board.area) throw HandlerException("4/5星符卡数量不足")
+
+        val size = board.size
+        val selected = IntArray(size) { -1 }
+        val usedCols = BooleanArray(size)
+        val rowOrder = if (size % 2 == 0) {
+            val mid1 = size / 2 - 1
+            val mid2 = size / 2
+            listOf(mid1, mid2) + (0 until size).filter { it != mid1 && it != mid2 }
+        } else {
+            val mid = size / 2
+            listOf(mid) + (0 until size).filter { it != mid }
+        }
+
+        fun candidates(row: Int): List<Int> {
+            val cols = (0 until size).filter { col ->
+                val star = stars[board.index(row, col)]
+                star == 4 || star == 5
+            }
+            return when {
+                size % 2 == 1 && row == size / 2 -> cols.filter { it == size / 2 }
+                size % 2 == 0 && (row == size / 2 - 1 || row == size / 2) ->
+                    cols.filter { it == size / 2 - 1 || it == size / 2 }
+                else -> cols
+            }
+        }
+
+        fun search(orderIndex: Int): Boolean {
+            if (orderIndex == rowOrder.size) {
+                val positions = IntArray(size) { row -> board.index(row, selected[row]) }
+                validateHighLevelPositions(board, positions)
+                return true
+            }
+
+            val row = rowOrder[orderIndex]
+            for (col in candidates(row)) {
+                if (usedCols[col]) continue
+                selected[row] = col
+                usedCols[col] = true
+                if (search(orderIndex + 1)) return true
+                usedCols[col] = false
+                selected[row] = -1
+            }
+            return false
+        }
+
+        if (!search(0)) throw HandlerException("4/5星符卡数量不足")
+        return selected.mapIndexed { row, col -> board.index(row, col) }.toSet()
+    }
+
     // ---- Star array builders by mode ----
 
     /**
      * Build a star array for NORMAL mode using DifficultyProfile.
      */
     @Throws(HandlerException::class)
-    private fun buildNormalStarArray(difficulty: Difficulty, boardSize: Int, useFixedHighLevelLayout: Boolean): IntArray {
+    private fun buildNormalStarArray(difficulty: Difficulty, boardSize: Int): IntArray {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val highCount = board.size
@@ -111,15 +218,6 @@ object SpellFactory {
                 Difficulty.L -> DifficultyProfile.L.counts(boardSize)
                 else -> DifficultyProfile.scaleCounts(difficulty.value, board.area - highCount)
             }
-        }
-
-        if (!useFixedHighLevelLayout) {
-            val allStars = IntArray(lvCount[0]) { 1 } +
-                IntArray(lvCount[1]) { 2 } +
-                IntArray(lvCount[2]) { 3 } +
-                IntArray(highCount - 1) { 4 } + IntArray(1) { 5 }
-            allStars.shuffle(rand)
-            return allStars
         }
 
         val lowStars = IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 }
@@ -169,24 +267,24 @@ object SpellFactory {
     /**
      * Build a star array for CUSTOM mode.
      * s = Difficulty.settingCache (11-element array from client custom config).
-     * s[0..4] = counts for stars 1-5, s[5] = OD flag, s[6] = fixed layout flag (unused here),
+     * s[0..4] = counts for stars 1-5, s[5] = fixed high-level layout flag, s[6] = downgrade flag,
      * s[7..8] = counts for high-level 4/5★, s[9] = ex position mode, s[10] = ex position count.
      */
     @Throws(HandlerException::class)
-    private fun buildCustomStarArray(s: IntArray, boardSize: Int, useFixedHighLevelLayout: Boolean): IntArray {
+    private fun buildCustomStarArray(s: IntArray, boardSize: Int): IntArray {
         val board = BoardSpec(boardSize)
         val boardArea = board.area
         val highCount = board.size
 
         if (s[0] + s[1] + s[2] + s[3] + s[4] != boardArea) {
-            return buildNormalStarArray(Difficulty.L, boardSize, useFixedHighLevelLayout)
+            return buildNormalStarArray(Difficulty.L, boardSize)
         }
 
         val rand = ThreadLocalRandom.current().asKotlinRandom()
 
-        if (useFixedHighLevelLayout) {
+        if (s[5] == 1) {
             if (s[3] + s[4] < highCount) {
-                throw HandlerException("自定义等级数据错误，4/5级卡数量不足")
+                throw HandlerException("4/5星符卡数量不足")
             }
             val s7 = if (s[7] + s[8] != highCount) {
                 highCount - 1
@@ -322,7 +420,6 @@ object SpellFactory {
         difficulty: Int? = null,
         difficultyObj: Difficulty? = null,
         boardSize: Int = 5,
-        useFixedHighLevelLayout: Boolean = true,
         bpLv1Count: Int = 5,
     ): IntArray = when (mode) {
         DifficultyMode.NORMAL -> buildNormalStarArray(
@@ -331,10 +428,10 @@ object SpellFactory {
                 2 -> Difficulty.N
                 3 -> Difficulty.L
                 else -> Difficulty.random()
-            }, boardSize, useFixedHighLevelLayout
+            }, boardSize
         )
         DifficultyMode.OD -> buildODStarArray(difficulty ?: 4, boardSize)
-        DifficultyMode.CUSTOM -> buildCustomStarArray(Difficulty.settingCache, boardSize, useFixedHighLevelLayout)
+        DifficultyMode.CUSTOM -> buildCustomStarArray(Difficulty.settingCache, boardSize)
         DifficultyMode.BP -> buildBPStarArray(bpLv1Count)
         DifficultyMode.BP_OD -> buildBPODStarArray(difficulty ?: 4)
         DifficultyMode.LINK -> buildLinkStarArray(
@@ -366,15 +463,16 @@ object SpellFactory {
         } else {
             ranksToExPos(ranks, rand, board)
         }
+        val priorityIndices = fixedHighLevelIndices(mode, stars, board)
 
         return when (mode) {
             DifficultyMode.NORMAL,
             DifficultyMode.CUSTOM,
             DifficultyMode.LINK -> SpellConfig.get(
-                SpellConfig.NORMAL_GAME, spellCardVersion, games, ranks, exPos, stars, rand
+                SpellConfig.NORMAL_GAME, spellCardVersion, games, ranks, exPos, stars, rand, priorityIndices
             )
             DifficultyMode.OD -> SpellConfig.getOD(
-                SpellConfig.NORMAL_GAME, spellCardVersion, games, ranks, exPos, stars, rand
+                SpellConfig.NORMAL_GAME, spellCardVersion, games, ranks, exPos, stars, rand, priorityIndices
             )
             DifficultyMode.BP,
             DifficultyMode.BP_OD -> SpellConfig.getBPOD(
@@ -394,13 +492,12 @@ object SpellFactory {
         ranks: Array<String>?,
         difficulty: Int? = null,
         boardSize: Int = 5,
-        useFixedHighLevelLayout: Boolean = true,
         difficultyObj: Difficulty? = null,
         bpLv1Count: Int = 5,
     ): Array<Spell> {
         val stars = buildStarArray(
             mode, difficulty, difficultyObj = difficultyObj,
-            boardSize = boardSize, useFixedHighLevelLayout = useFixedHighLevelLayout,
+            boardSize = boardSize,
             bpLv1Count = bpLv1Count,
         )
         return drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize)
@@ -428,27 +525,23 @@ object SpellFactory {
         games: Array<String>,
         ranks: Array<String>?,
         difficulty: Difficulty,
-        boardSize: Int = 5,
-        useFixedHighLevelLayout: Boolean = true
+        boardSize: Int = 5
     ): Array<Spell> = drawSpellsWithStar(
         DifficultyMode.NORMAL, spellCardVersion, games, ranks,
         buildStarArray(
             DifficultyMode.NORMAL,
             difficultyObj = difficulty,
             boardSize = boardSize,
-            useFixedHighLevelLayout = useFixedHighLevelLayout,
         ),
         boardSize,
     )
 
     @Throws(HandlerException::class)
-    fun randSpellsStarArray(difficulty: Difficulty, boardSize: Int = 5, useFixedHighLevelLayout: Boolean = true): IntArray =
-        buildStarArray(
-            DifficultyMode.NORMAL,
-            difficultyObj = difficulty,
-            boardSize = boardSize,
-            useFixedHighLevelLayout = useFixedHighLevelLayout,
-        )
+    fun randSpellsStarArray(difficulty: Difficulty, boardSize: Int = 5): IntArray = buildStarArray(
+        DifficultyMode.NORMAL,
+        difficultyObj = difficulty,
+        boardSize = boardSize,
+    )
 
     @Throws(HandlerException::class)
     fun randSpellsWithStar(
@@ -494,18 +587,16 @@ object SpellFactory {
         ranks: Array<String>?,
         difficulty: Int,
         boardSize: Int = 5,
-        useFixedHighLevelLayout: Boolean = true
     ): Array<Spell> = drawSpells(
         DifficultyMode.CUSTOM, spellCardVersion, games, ranks, difficulty,
-        boardSize, useFixedHighLevelLayout
+        boardSize
     )
 
     @Throws(HandlerException::class)
-    fun randSpellsCustomStarArray(s: IntArray, boardSize: Int = 5, useFixedHighLevelLayout: Boolean = true): IntArray {
+    fun randSpellsCustomStarArray(s: IntArray, boardSize: Int = 5): IntArray {
         return buildStarArray(
             DifficultyMode.CUSTOM,
             boardSize = boardSize,
-            useFixedHighLevelLayout = useFixedHighLevelLayout,
         )
     }
 

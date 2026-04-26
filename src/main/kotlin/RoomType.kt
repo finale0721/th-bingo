@@ -16,18 +16,17 @@ sealed interface RoomType {
         val start = System.currentTimeMillis()
         var retryCount = 0
         val boardSize = room.roomConfig.boardSize
-        val useFixedHighLevelLayout = room.roomConfig.useFixedHighLevelLayout
         while (true) {
             try {
                 if (stars == null) {
                     room.spells = room.type.randSpells(
                         room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, boardSize, useFixedHighLevelLayout
+                        room.roomConfig.ranks, room.roomConfig.difficulty, boardSize
                     )
                 } else {
                     room.spells = room.type.randSpellsWithStar(
                         room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize, useFixedHighLevelLayout
+                        room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize
                     )
                 }
                 break
@@ -102,8 +101,7 @@ sealed interface RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        boardSize: Int = 5,
-        useFixedHighLevelLayout: Boolean = true
+        boardSize: Int = 5
     ): Array<Spell>
 
     @Throws(HandlerException::class)
@@ -113,13 +111,12 @@ sealed interface RoomType {
         ranks: Array<String>,
         difficulty: Int?,
         stars: IntArray?,
-        boardSize: Int = 5,
-        useFixedHighLevelLayout: Boolean = true
+        boardSize: Int = 5
     ): Array<Spell> {
-        return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout)
+        return randSpells(spellCardVersion, games, ranks, difficulty, boardSize)
     }
 
-    fun rollSpellsStarArray(difficulty: Int?, boardSize: Int = 5, useFixedHighLevelLayout: Boolean = true): IntArray {
+    fun rollSpellsStarArray(difficulty: Int?, boardSize: Int = 5): IntArray {
         return intArrayOf()
     }
 

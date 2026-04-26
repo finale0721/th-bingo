@@ -109,15 +109,17 @@ object RoomTypeNormal : RoomType {
         // rewrite the roll spell logic. We generate spellStarArray by individual calls
         val starArray = rollSpellsStarArray(
             room.roomConfig.difficulty,
-            room.roomConfig.boardSize,
-            room.roomConfig.useFixedHighLevelLayout
+            room.roomConfig.boardSize
         )
         rollSpellCard(room, starArray)
         // only room.spells can be assigned in rollSpellCard, so spells2 can only copy from spells
         room.spells2 = room.spells!!.copyOf()
         // generate another starArray: diffLevel -1 = random, 1..5 = tiered similarity
         val spell2RankArray = SimilarBoardGenerator.findMatrixB(
-            starArray, room.roomConfig.diffLevel, room.boardSpec
+            starArray,
+            room.roomConfig.diffLevel,
+            room.boardSpec,
+            preserveFixedHighLevelLayout = room.roomConfig.difficulty != 6 || Difficulty.settingCache[5] == 1,
         )
         // reassign room.spells
         rollSpellCard(room, spell2RankArray)
@@ -157,8 +159,7 @@ object RoomTypeNormal : RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        boardSize: Int,
-        useFixedHighLevelLayout: Boolean
+        boardSize: Int
     ): Array<Spell> {
         val mode = resolveDifficultyMode(difficulty)
         val diffObj = when (mode) {
@@ -172,12 +173,12 @@ object RoomTypeNormal : RoomType {
         }
         return SpellFactory.drawSpells(
             mode, spellCardVersion, games, ranks, difficulty,
-            boardSize = boardSize, useFixedHighLevelLayout = useFixedHighLevelLayout,
+            boardSize = boardSize,
             difficultyObj = diffObj,
         )
     }
 
-    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, useFixedHighLevelLayout: Boolean): IntArray {
+    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int): IntArray {
         val mode = resolveDifficultyMode(difficulty)
         val diffObj = when (mode) {
             DifficultyMode.NORMAL -> when (difficulty) {
@@ -190,7 +191,7 @@ object RoomTypeNormal : RoomType {
         }
         return SpellFactory.buildStarArray(
             mode, difficulty, difficultyObj = diffObj,
-            boardSize = boardSize, useFixedHighLevelLayout = useFixedHighLevelLayout,
+            boardSize = boardSize,
         )
     }
 
@@ -200,11 +201,10 @@ object RoomTypeNormal : RoomType {
         ranks: Array<String>,
         difficulty: Int?,
         stars: IntArray?,
-        boardSize: Int,
-        useFixedHighLevelLayout: Boolean
+        boardSize: Int
     ): Array<Spell> {
         if (stars == null) {
-            return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout)
+            return randSpells(spellCardVersion, games, ranks, difficulty, boardSize)
         }
         val mode = resolveDifficultyMode(difficulty)
         return SpellFactory.drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize)

@@ -86,9 +86,6 @@ class RoomConfig(
     /** 6x6额外连线数量 */
     @SerialName("extra_line_count")
     val extraLineCount: Int = 0,
-    /** 自定义难度是否采用4/5级固定生成机制 */
-    @SerialName("use_fixed_high_level_layout")
-    val useFixedHighLevelLayout: Boolean = true,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -154,8 +151,7 @@ class RoomConfig(
             cdModifierA = config.cdModifierA ?: cdModifierA,
             cdModifierB = config.cdModifierB ?: cdModifierB,
             boardSize = config.boardSize ?: boardSize,
-            extraLineCount = config.extraLineCount ?: extraLineCount,
-            useFixedHighLevelLayout = config.useFixedHighLevelLayout ?: useFixedHighLevelLayout
+            extraLineCount = config.extraLineCount ?: extraLineCount
         )
     }
 }
@@ -243,9 +239,6 @@ class RoomConfigNullable(
     /** 6x6额外连线数量 */
     @SerialName("extra_line_count")
     val extraLineCount: Int? = null,
-    /** 自定义难度是否采用4/5级固定生成机制 */
-    @SerialName("use_fixed_high_level_layout")
-    val useFixedHighLevelLayout: Boolean? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {

@@ -27,12 +27,17 @@ object SimilarBoardGenerator {
      * @param board Board geometry spec
      * @return A star array with the same star distribution as matrixA
      */
-    fun findMatrixB(matrixA: IntArray, diffLevel: Int, board: BoardSpec = BoardSpec(5)): IntArray {
+    fun findMatrixB(
+        matrixA: IntArray,
+        diffLevel: Int,
+        board: BoardSpec = BoardSpec(5),
+        preserveFixedHighLevelLayout: Boolean = false,
+    ): IntArray {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
 
         if (diffLevel < 0) {
             // Random mode: just return a fresh random board with same star distribution
-            return generateRandomBoard(matrixA, board, rand)
+            return generateRandomBoard(matrixA, board, rand, preserveFixedHighLevelLayout)
         }
 
         val level = diffLevel.coerceIn(1, 5)
@@ -40,7 +45,7 @@ object SimilarBoardGenerator {
         // Generate CANDIDATE_COUNT random boards, compute difference, sort ascending
         val candidates = ArrayList<Pair<IntArray, Int>>(CANDIDATE_COUNT)
         for (i in 0 until CANDIDATE_COUNT) {
-            val candidate = generateRandomBoard(matrixA, board, rand)
+            val candidate = generateRandomBoard(matrixA, board, rand, preserveFixedHighLevelLayout)
             val diff = computeDifference(matrixA, candidate)
             candidates.add(Pair(candidate, diff))
         }
@@ -56,10 +61,38 @@ object SimilarBoardGenerator {
      * Generate a random board preserving the same star-level distribution as matrixA.
      * Shuffles the star values randomly across all positions.
      */
-    private fun generateRandomBoard(matrixA: IntArray, board: BoardSpec, rand: Random): IntArray {
+    private fun generateRandomBoard(
+        matrixA: IntArray,
+        board: BoardSpec,
+        rand: Random,
+        preserveFixedHighLevelLayout: Boolean,
+    ): IntArray {
+        if (preserveFixedHighLevelLayout) {
+            return generateFixedHighLevelBoard(matrixA, board, rand)
+        }
         val shuffled = matrixA.copyOf()
         shuffled.shuffle(rand)
         return shuffled
+    }
+
+    private fun generateFixedHighLevelBoard(matrixA: IntArray, board: BoardSpec, rand: Random): IntArray {
+        val fixedSource = SpellFactory.fixedHighLevelIndices(matrixA, board)
+        val fixedStars = fixedSource.map { matrixA[it] }.toMutableList()
+        fixedStars.shuffle(rand)
+
+        val lowStars = matrixA.indices.filter { it !in fixedSource }
+            .map { matrixA[it] }
+            .toMutableList()
+        lowStars.shuffle(rand)
+
+        val result = IntArray(board.area)
+        val fixedTarget = SpellFactory.highLevelPositions(board, rand).toSet()
+        var fixedIndex = 0
+        var lowIndex = 0
+        for (i in 0 until board.area) {
+            result[i] = if (i in fixedTarget) fixedStars[fixedIndex++] else lowStars[lowIndex++]
+        }
+        return result
     }
 
     /**
