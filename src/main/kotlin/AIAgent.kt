@@ -99,21 +99,8 @@ class AIAgent(private val room: Room) {
     private val line3Bonus = 9.0
     private val line4Bonus = 12.0
 
-    /** 棋盘上所有12条有效的胜利线路。 */
-    private val boardLines = listOf(
-        (0..4).toList(),
-        (5..9).toList(),
-        (10..14).toList(),
-        (15..19).toList(),
-        (20..24).toList(), // 5 Horizontal
-        (0..20 step 5).toList(),
-        (1..21 step 5).toList(),
-        (2..22 step 5).toList(),
-        (3..23 step 5).toList(),
-        (4..24 step 5).toList(), // 5 Vertical
-        (0..24 step 6).toList(),
-        (4..20 step 4).toList() // 2 Diagonal
-    )
+    /** 棋盘上所有有效的胜利线路。 */
+    private val boardLines: List<List<Int>> = room.boardSpec.winningLines()
 
     // --- 公共接口 ---
     /** 启动AI Agent，初始化并开始决策循环。 */
@@ -533,7 +520,7 @@ class AIAgent(private val room: Room) {
         )
         decisionLog.append("Idx | ETV(s) | Notes\n")
 
-        val isFirstSelect = (boardState.count { it == PlayerState.EMPTY } == 25)
+        val isFirstSelect = (boardState.count { it == PlayerState.EMPTY } == room.boardArea)
 
         for (i in gridModels.indices) {
             if (boardState[i] == PlayerState.EMPTY) {
@@ -1001,9 +988,10 @@ class AIAgent(private val room: Room) {
 
     /** 获取一个格子的初始位置价值（以时间为单位）。 */
     private fun getPositionalTimeValue(index: Int, baselineTime: Float): Double {
-        val multiplier = when (index) {
-            12 -> 0.25 // 4条线
-            6, 8, 16, 18, 0, 4, 20, 24 -> 0.12 // 3条线
+        val linesThroughCell = boardLines.count { index in it }
+        val multiplier = when (linesThroughCell) {
+            4 -> 0.25
+            3 -> 0.12
             else -> 0.0
         }
         return baselineTime * multiplier
@@ -1043,11 +1031,13 @@ class AIAgent(private val room: Room) {
     /** 根据棋子总数计算游戏阶段修正因子。 */
     private fun calculateGamePhaseModifier(boardState: Array<PlayerState>): Double {
         val totalPieces = boardState.count { it != PlayerState.EMPTY }
+        val area = room.boardArea
+        val ratio = totalPieces.toFloat() / area
         return when {
-            totalPieces <= 4 -> 0.4 // 初局，优先考虑占位置
-            totalPieces <= 8 -> 0.7
-            totalPieces <= 18 -> 1.0 // 中盘，构筑连线
-            totalPieces <= 25 -> 0.4 // 抢分
+            ratio <= 0.16 -> 0.4 // 初局，优先考虑占位置
+            ratio <= 0.32 -> 0.7
+            ratio <= 0.72 -> 1.0 // 中盘，构筑连线
+            ratio <= 1.0 -> 0.4 // 抢分
             else -> 0.0
         }
     }
