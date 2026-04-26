@@ -329,14 +329,15 @@ object SpellFactory {
         games: Array<String>,
         ranks: Array<String>?,
         difficulty: Int,
-        boardSize: Int = 5
+        boardSize: Int = 5,
+        useFixedHighLevelLayout: Boolean = true
     ): Array<Spell> {
-        val starArray = randSpellsCustomStarArray(Difficulty.settingCache, boardSize)
+        val starArray = randSpellsCustomStarArray(Difficulty.settingCache, boardSize, useFixedHighLevelLayout)
         return randSpellsCustomWithStar(spellCardVersion, games, ranks, starArray, boardSize)
     }
 
     @Throws(HandlerException::class)
-    fun randSpellsCustomStarArray(s: IntArray, boardSize: Int = 5): IntArray {
+    fun randSpellsCustomStarArray(s: IntArray, boardSize: Int = 5, useFixedHighLevelLayout: Boolean = true): IntArray {
         val board = BoardSpec(boardSize)
         val boardArea = board.area
         val highCount = board.size
@@ -351,7 +352,10 @@ object SpellFactory {
         var diff = IntArray(7)
         var star45: IntArray? = null
 
-        if (s[5] == 1) {
+        // useFixedHighLevelLayout is the single authority for 4/5-star fixed layout
+        val fixedLayout = if (useFixedHighLevelLayout) 1 else 0
+
+        if (fixedLayout == 1) {
             if (s[3] + s[4] < highCount) {
                 throw HandlerException("自定义等级数据错误，4/5级卡数量不足")
             }
@@ -363,13 +367,13 @@ object SpellFactory {
             star45.shuffle(rand)
         }
         if (s[6] == 1) {
-            if (s[5] == 1) {
+            if (fixedLayout == 1) {
                 diff = intArrayOf(s[0], s[1], s[2], 0, 0, s[3] - s[7], s[4] - s[8])
             } else {
                 diff = intArrayOf(s[0], s[1], s[2], 0, 0, s[3], s[4])
             }
         } else {
-            if (s[5] == 1) {
+            if (fixedLayout == 1) {
                 diff = intArrayOf(s[0], s[1], s[2], s[3] - s[7], s[4] - s[8], 0, 0)
             } else {
                 diff = intArrayOf(s[0], s[1], s[2], s[3], s[4], 0, 0)
@@ -381,7 +385,7 @@ object SpellFactory {
         starOther.shuffle(rand)
 
         var j = 0
-        if (s[5] == 1 && star45 != null) {
+        if (fixedLayout == 1 && star45 != null) {
             val highPositions = idx.toSet()
             var hiIdx = 0
             return IntArray(boardArea) { i ->

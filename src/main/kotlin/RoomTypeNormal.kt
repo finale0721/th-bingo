@@ -156,7 +156,7 @@ object RoomTypeNormal : RoomType {
         difficulty?.let {
             if (it == 6) {
                 return SpellFactory.randSpellsCustom(
-                    spellCardVersion, games, ranks, difficulty, boardSize
+                    spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout
                 )
             }
             if (it >= 4)
@@ -177,7 +177,9 @@ object RoomTypeNormal : RoomType {
     override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, useFixedHighLevelLayout: Boolean): IntArray {
         difficulty?.let {
             if (it == 6) {
-                return SpellFactory.randSpellsCustomStarArray(Difficulty.settingCache, boardSize)
+                return SpellFactory.randSpellsCustomStarArray(
+                    Difficulty.settingCache, boardSize, useFixedHighLevelLayout
+                )
             }
             if (it >= 4)
                 return SpellFactory.randSpellsODStarArray(difficulty, boardSize)
