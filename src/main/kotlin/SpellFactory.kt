@@ -137,14 +137,19 @@ object SpellFactory {
         return stars
     }
 
-    private fun usesFixedHighLevelLayout(mode: DifficultyMode): Boolean {
+    private fun usesFixedHighLevelLayout(mode: DifficultyMode, customSettings: IntArray?): Boolean {
         return mode == DifficultyMode.NORMAL ||
             mode == DifficultyMode.OD ||
-            (mode == DifficultyMode.CUSTOM && Difficulty.settingCache[5] == 1)
+            (mode == DifficultyMode.CUSTOM && customSettings?.getOrNull(5) == 1)
     }
 
-    private fun fixedHighLevelIndices(mode: DifficultyMode, stars: IntArray, board: BoardSpec): Set<Int> {
-        if (!usesFixedHighLevelLayout(mode)) return emptySet()
+    private fun fixedHighLevelIndices(
+        mode: DifficultyMode,
+        stars: IntArray,
+        board: BoardSpec,
+        customSettings: IntArray?,
+    ): Set<Int> {
+        if (!usesFixedHighLevelLayout(mode, customSettings)) return emptySet()
         return fixedHighLevelIndices(stars, board)
     }
 
@@ -201,26 +206,41 @@ object SpellFactory {
 
     // ---- Star array builders by mode ----
 
+    private fun normalizeProfileCounts(counts: IntArray): IntArray {
+        return when (counts.size) {
+            3 -> intArrayOf(counts[0], counts[1], counts[2], 0, 0, 0, 0)
+            7 -> counts
+            else -> throw HandlerException("难度配置格式错误")
+        }
+    }
+
+    private fun profileStars(counts: IntArray, expectedTotal: Int): IntArray {
+        val da = normalizeProfileCounts(counts)
+        if (da.sum() != expectedTotal) {
+            throw HandlerException("难度配置数量与棋盘尺寸不匹配")
+        }
+        return IntArray(da[0]) { 1 } + IntArray(da[1]) { 2 } +
+            IntArray(da[2]) { 3 } + IntArray(da[3]) { 4 } +
+            IntArray(da[4]) { 5 } + IntArray(da[5]) { 6 } +
+            IntArray(da[6]) { 7 }
+    }
+
     /**
-     * Build a star array for NORMAL mode using DifficultyProfile.
+     * Build a star array for NORMAL mode using 7-level DifficultyProfile.
      */
     @Throws(HandlerException::class)
     private fun buildNormalStarArray(difficulty: Difficulty, boardSize: Int): IntArray {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val highCount = board.size
-        val lvCount = if (boardSize == 5) {
-            difficulty.value
-        } else {
-            when (difficulty) {
-                Difficulty.E -> DifficultyProfile.E.counts(boardSize)
-                Difficulty.N -> DifficultyProfile.N.counts(boardSize)
-                Difficulty.L -> DifficultyProfile.L.counts(boardSize)
-                else -> DifficultyProfile.scaleCounts(difficulty.value, board.area - highCount)
-            }
+        val lvCount = when (difficulty) {
+            Difficulty.E -> DifficultyProfile.E.counts(boardSize)
+            Difficulty.N -> DifficultyProfile.N.counts(boardSize)
+            Difficulty.L -> DifficultyProfile.L.counts(boardSize)
+            else -> DifficultyProfile.scaleCounts(difficulty.value, board.area - highCount)
         }
 
-        val lowStars = IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 }
+        val lowStars = profileStars(lvCount, board.area - highCount)
         lowStars.shuffle(rand)
         val highStars = IntArray(highCount - 1) { 4 } + IntArray(1) { 5 }
         highStars.shuffle(rand)
@@ -235,28 +255,16 @@ object SpellFactory {
      */
     @Throws(HandlerException::class)
     private fun buildODStarArray(difficulty: Int, boardSize: Int): IntArray {
-        val da = if (boardSize == 5) {
-            when (difficulty) {
-                4 -> Difficulty.OD.value
-                5 -> Difficulty.ODP.value
-                else -> Difficulty.LDefault.value
-            }
-        } else {
-            val profile = when (difficulty) {
-                4 -> DifficultyProfile.OD
-                5 -> DifficultyProfile.ODP
-                else -> DifficultyProfile.LDefault
-            }
-            profile.counts(boardSize)
+        val profile = when (difficulty) {
+            4 -> DifficultyProfile.OD
+            5 -> DifficultyProfile.ODP
+            else -> DifficultyProfile.LDefault
         }
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val highCount = board.size
 
-        val lowStars = IntArray(da[0]) { 1 } + IntArray(da[1]) { 2 } +
-            IntArray(da[2]) { 3 } + IntArray(da[3]) { 4 } +
-            IntArray(da[4]) { 5 } + IntArray(da[5]) { 6 } +
-            IntArray(da[6]) { 7 }
+        val lowStars = profileStars(profile.counts(boardSize), board.area - highCount)
         lowStars.shuffle(rand)
         val highStars = IntArray(highCount - 1) { 4 } + IntArray(1) { 5 }
         highStars.shuffle(rand)
@@ -266,7 +274,7 @@ object SpellFactory {
 
     /**
      * Build a star array for CUSTOM mode.
-     * s = Difficulty.settingCache (11-element array from client custom config).
+     * s = 11-element array from client custom config.
      * s[0..4] = counts for stars 1-5, s[5] = fixed high-level layout flag, s[6] = downgrade flag,
      * s[7..8] = counts for high-level 4/5★, s[9] = ex position mode, s[10] = ex position count.
      */
@@ -421,6 +429,7 @@ object SpellFactory {
         difficultyObj: Difficulty? = null,
         boardSize: Int = 5,
         bpLv1Count: Int = 5,
+        customSettings: IntArray? = null,
     ): IntArray = when (mode) {
         DifficultyMode.NORMAL -> buildNormalStarArray(
             difficultyObj ?: when (difficulty) {
@@ -431,7 +440,10 @@ object SpellFactory {
             }, boardSize
         )
         DifficultyMode.OD -> buildODStarArray(difficulty ?: 4, boardSize)
-        DifficultyMode.CUSTOM -> buildCustomStarArray(Difficulty.settingCache, boardSize)
+        DifficultyMode.CUSTOM -> buildCustomStarArray(
+            customSettings ?: throw HandlerException("自定义等级数据格式错误"),
+            boardSize
+        )
         DifficultyMode.BP -> buildBPStarArray(bpLv1Count)
         DifficultyMode.BP_OD -> buildBPODStarArray(difficulty ?: 4)
         DifficultyMode.LINK -> buildLinkStarArray(
@@ -455,19 +467,27 @@ object SpellFactory {
         ranks: Array<String>?,
         stars: IntArray,
         boardSize: Int = 5,
+        customSettings: IntArray? = null,
     ): Array<Spell> {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val exPos = if (mode == DifficultyMode.CUSTOM) {
-            ranksToExPosCustom(ranks, rand, Difficulty.settingCache, board)
+            ranksToExPosCustom(
+                ranks,
+                rand,
+                customSettings ?: throw HandlerException("自定义等级数据格式错误"),
+                board
+            )
         } else {
             ranksToExPos(ranks, rand, board)
         }
-        val priorityIndices = fixedHighLevelIndices(mode, stars, board)
+        val priorityIndices = fixedHighLevelIndices(mode, stars, board, customSettings)
 
         return when (mode) {
             DifficultyMode.NORMAL,
-            DifficultyMode.CUSTOM,
+            DifficultyMode.CUSTOM -> SpellConfig.getWithHighLevelDowngrade(
+                SpellConfig.NORMAL_GAME, spellCardVersion, games, ranks, exPos, stars, rand, priorityIndices
+            )
             DifficultyMode.LINK -> SpellConfig.get(
                 SpellConfig.NORMAL_GAME, spellCardVersion, games, ranks, exPos, stars, rand, priorityIndices
             )
@@ -494,13 +514,15 @@ object SpellFactory {
         boardSize: Int = 5,
         difficultyObj: Difficulty? = null,
         bpLv1Count: Int = 5,
+        customSettings: IntArray? = null,
     ): Array<Spell> {
         val stars = buildStarArray(
             mode, difficulty, difficultyObj = difficultyObj,
             boardSize = boardSize,
             bpLv1Count = bpLv1Count,
+            customSettings = customSettings,
         )
-        return drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize)
+        return drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize, customSettings)
     }
 
     // ---- Legacy public API (delegates to unified methods) ----
@@ -585,11 +607,12 @@ object SpellFactory {
         spellCardVersion: Int,
         games: Array<String>,
         ranks: Array<String>?,
-        difficulty: Int,
+        settings: IntArray,
         boardSize: Int = 5,
     ): Array<Spell> = drawSpells(
-        DifficultyMode.CUSTOM, spellCardVersion, games, ranks, difficulty,
-        boardSize
+        DifficultyMode.CUSTOM, spellCardVersion, games, ranks,
+        boardSize = boardSize,
+        customSettings = settings,
     )
 
     @Throws(HandlerException::class)
@@ -597,6 +620,7 @@ object SpellFactory {
         return buildStarArray(
             DifficultyMode.CUSTOM,
             boardSize = boardSize,
+            customSettings = s,
         )
     }
 
@@ -606,9 +630,10 @@ object SpellFactory {
         games: Array<String>,
         ranks: Array<String>?,
         stars: IntArray,
-        boardSize: Int = 5
+        settings: IntArray,
+        boardSize: Int = 5,
     ): Array<Spell> = drawSpellsWithStar(
-        DifficultyMode.CUSTOM, spellCardVersion, games, ranks, stars, boardSize
+        DifficultyMode.CUSTOM, spellCardVersion, games, ranks, stars, boardSize, settings
     )
 
     @Throws(HandlerException::class)

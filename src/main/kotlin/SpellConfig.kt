@@ -306,10 +306,7 @@ object SpellConfig {
         priorityIndices: Set<Int> = emptySet(),
     ): Array<Spell> = draw(type, fileId, games, ranks, exPos, stars, rand, priorityIndices = priorityIndices)
 
-    /**
-     * OD赛随符卡 (4/5★优先抽取，star=7/6升级降级逻辑)
-     */
-    fun getOD(
+    fun getWithHighLevelDowngrade(
         type: Int,
         fileId: Int,
         games: Array<String>,
@@ -323,6 +320,22 @@ object SpellConfig {
         upgrades = OD_UPGRADES,
         priorityIndices = priorityIndices,
         priorityStars = setOf(4, 5),
+    )
+
+    /**
+     * OD赛随符卡 (4/5★优先抽取，star=7/6升级降级逻辑)
+     */
+    fun getOD(
+        type: Int,
+        fileId: Int,
+        games: Array<String>,
+        ranks: Array<String>?,
+        exPos: IntArray,
+        stars: IntArray,
+        rand: Random,
+        priorityIndices: Set<Int> = emptySet(),
+    ): Array<Spell> = getWithHighLevelDowngrade(
+        type, fileId, games, ranks, exPos, stars, rand, priorityIndices
     )
 
     /**

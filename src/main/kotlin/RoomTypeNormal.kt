@@ -109,7 +109,8 @@ object RoomTypeNormal : RoomType {
         // rewrite the roll spell logic. We generate spellStarArray by individual calls
         val starArray = rollSpellsStarArray(
             room.roomConfig.difficulty,
-            room.roomConfig.boardSize
+            room.roomConfig.boardSize,
+            room.roomConfig.customLevelCount.toIntArray()
         )
         rollSpellCard(room, starArray)
         // only room.spells can be assigned in rollSpellCard, so spells2 can only copy from spells
@@ -119,7 +120,7 @@ object RoomTypeNormal : RoomType {
             starArray,
             room.roomConfig.diffLevel,
             room.boardSpec,
-            preserveFixedHighLevelLayout = room.roomConfig.difficulty != 6 || Difficulty.settingCache[5] == 1,
+            preserveFixedHighLevelLayout = room.roomConfig.difficulty != 6 || room.roomConfig.customLevelCount[5] == 1,
         )
         // reassign room.spells
         rollSpellCard(room, spell2RankArray)
@@ -159,7 +160,8 @@ object RoomTypeNormal : RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        boardSize: Int
+        boardSize: Int,
+        customSettings: IntArray?
     ): Array<Spell> {
         val mode = resolveDifficultyMode(difficulty)
         val diffObj = when (mode) {
@@ -175,10 +177,11 @@ object RoomTypeNormal : RoomType {
             mode, spellCardVersion, games, ranks, difficulty,
             boardSize = boardSize,
             difficultyObj = diffObj,
+            customSettings = customSettings,
         )
     }
 
-    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int): IntArray {
+    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, customSettings: IntArray?): IntArray {
         val mode = resolveDifficultyMode(difficulty)
         val diffObj = when (mode) {
             DifficultyMode.NORMAL -> when (difficulty) {
@@ -192,6 +195,7 @@ object RoomTypeNormal : RoomType {
         return SpellFactory.buildStarArray(
             mode, difficulty, difficultyObj = diffObj,
             boardSize = boardSize,
+            customSettings = customSettings,
         )
     }
 
@@ -201,13 +205,16 @@ object RoomTypeNormal : RoomType {
         ranks: Array<String>,
         difficulty: Int?,
         stars: IntArray?,
-        boardSize: Int
+        boardSize: Int,
+        customSettings: IntArray?
     ): Array<Spell> {
         if (stars == null) {
-            return randSpells(spellCardVersion, games, ranks, difficulty, boardSize)
+            return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, customSettings)
         }
         val mode = resolveDifficultyMode(difficulty)
-        return SpellFactory.drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize)
+        return SpellFactory.drawSpellsWithStar(
+            mode, spellCardVersion, games, ranks, stars, boardSize, customSettings
+        )
     }
 
     override fun handleSelectSpell(room: Room, playerIndex: Int, spellIndex: Int) {

@@ -35,7 +35,8 @@ object RoomTypeLink : RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        boardSize: Int
+        boardSize: Int,
+        customSettings: IntArray?
     ): Array<Spell> {
         val diffObj = when (difficulty) {
             1 -> Difficulty.E

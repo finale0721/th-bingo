@@ -33,41 +33,54 @@ data class DifficultyProfile(
         val E = DifficultyProfile(
             "E",
             mapOf(
-                4 to intArrayOf(7, 4, 1), // 7+4+1=12 non-high + 4 high = 16
-                5 to intArrayOf(12, 6, 2), // 12+6+2=20 non-high + 5 high = 25
-                6 to intArrayOf(18, 9, 3), // 18+9+3=30 non-high + 6 high = 36
+                4 to intArrayOf(8, 3, 1, 0, 0, 0, 0), // 8 3 1 3 1
+                5 to intArrayOf(12, 6, 2, 0, 0, 0, 0), // 12 6 2 4 1
+                6 to intArrayOf(15, 10, 5, 0, 0, 0, 0), // 15 10 5 5 1
             )
         )
 
         val N = DifficultyProfile(
             "N",
             mapOf(
-                4 to intArrayOf(4, 5, 3), // 4+5+3=12
-                5 to intArrayOf(6, 8, 6), // 6+8+6=20
-                6 to intArrayOf(9, 12, 9), // 9+12+9=30
+                4 to intArrayOf(3, 6, 3, 0, 0, 0, 0), // 3 6 3 3 1
+                5 to intArrayOf(6, 8, 6, 0, 0, 0, 0), // 6 8 6 4 1
+                6 to intArrayOf(9, 11, 9, 0, 0, 1, 0), // 9 11 9 6 1
             )
         )
 
         val L = DifficultyProfile(
             "L",
             mapOf(
-                4 to intArrayOf(1, 4, 7), // 1+4+7=12
-                5 to intArrayOf(2, 6, 12), // 2+6+12=20
-                6 to intArrayOf(3, 9, 18), // 3+9+18=30
+                4 to intArrayOf(1, 3, 8, 0, 0, 0, 0), // 1 3 8 3 1
+                5 to intArrayOf(2, 6, 12, 0, 0, 0, 0), // 2 6 12 4 1
+                6 to intArrayOf(4, 9, 16, 0, 0, 1, 0), // 4 9 16 6 1
             )
         )
 
         val OD = DifficultyProfile(
             "OD",
             mapOf(
-                5 to intArrayOf(1, 4, 8, 0, 0, 5, 2),
+                4 to intArrayOf(1, 2, 5, 0, 0, 3, 1), // 1 2 5 6 2
+                5 to intArrayOf(1, 4, 8, 0, 0, 5, 2), // 1 4 8 9 3
+                6 to intArrayOf(2, 7, 10, 0, 0, 7, 4), // 2 7 10 12 5
             )
         )
 
         val ODP = DifficultyProfile(
             "ODP",
             mapOf(
-                5 to intArrayOf(0, 0, 6, 0, 0, 9, 5),
+                4 to intArrayOf(0, 0, 4, 0, 0, 5, 3),  // 0 0 4 8 4
+                5 to intArrayOf(0, 0, 6, 0, 0, 9, 5),  // 0 0 6 13 6
+                6 to intArrayOf(0, 0, 10, 0, 0, 11, 9),  // 0 0 10 16 10
+            )
+        )
+
+        val LDefault = DifficultyProfile(
+            "LDefault",
+            mapOf(
+                4 to intArrayOf(1, 3, 8, 0, 0, 0, 0), // 1 3 8 3 1
+                5 to intArrayOf(2, 6, 12, 0, 0, 0, 0), // 2 6 12 4 1
+                6 to intArrayOf(4, 9, 16, 0, 0, 1, 0), // 4 9 16 6 1
             )
         )
 
@@ -82,13 +95,6 @@ data class DifficultyProfile(
             "ODPBP",
             mapOf(
                 5 to intArrayOf(0, 10, 0, 10),
-            )
-        )
-
-        val LDefault = DifficultyProfile(
-            "LDefault",
-            mapOf(
-                5 to intArrayOf(2, 6, 12, 0, 0, 0, 0),
             )
         )
 

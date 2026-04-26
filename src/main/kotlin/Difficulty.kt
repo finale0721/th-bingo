@@ -24,11 +24,5 @@ class Difficulty(val value: IntArray) {
             val e = (2..(18 - n)).random()
             return Difficulty(intArrayOf(e, n, 20 - e - n))
         }
-
-        var settingCache: IntArray = IntArray(9)
-
-        fun constructCustom(setting: Array<Int>) {
-            settingCache = setting.map { it.toInt() }.toIntArray()
-        }
     }
 }

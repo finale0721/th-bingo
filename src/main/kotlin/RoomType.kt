@@ -21,12 +21,14 @@ sealed interface RoomType {
                 if (stars == null) {
                     room.spells = room.type.randSpells(
                         room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, boardSize
+                        room.roomConfig.ranks, room.roomConfig.difficulty, boardSize,
+                        room.roomConfig.customLevelCount.toIntArray()
                     )
                 } else {
                     room.spells = room.type.randSpellsWithStar(
                         room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize
+                        room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize,
+                        room.roomConfig.customLevelCount.toIntArray()
                     )
                 }
                 break
@@ -84,9 +86,7 @@ sealed interface RoomType {
         room.isCustomGame = false
     }
 
-    fun setUp(room: Room) {
-        Difficulty.constructCustom(room.roomConfig.customLevelCount)
-    }
+    fun setUp(room: Room) {}
 
     fun onStart(room: Room)
 
@@ -101,7 +101,8 @@ sealed interface RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        boardSize: Int = 5
+        boardSize: Int = 5,
+        customSettings: IntArray? = null,
     ): Array<Spell>
 
     @Throws(HandlerException::class)
@@ -111,12 +112,13 @@ sealed interface RoomType {
         ranks: Array<String>,
         difficulty: Int?,
         stars: IntArray?,
-        boardSize: Int = 5
+        boardSize: Int = 5,
+        customSettings: IntArray? = null,
     ): Array<Spell> {
-        return randSpells(spellCardVersion, games, ranks, difficulty, boardSize)
+        return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, customSettings)
     }
 
-    fun rollSpellsStarArray(difficulty: Int?, boardSize: Int = 5): IntArray {
+    fun rollSpellsStarArray(difficulty: Int?, boardSize: Int = 5, customSettings: IntArray? = null): IntArray {
         return intArrayOf()
     }
 

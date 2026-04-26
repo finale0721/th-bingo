@@ -67,7 +67,8 @@ object RoomTypeBP : RoomType {
         games: Array<String>,
         ranks: Array<String>,
         difficulty: Int?,
-        boardSize: Int
+        boardSize: Int,
+        customSettings: IntArray?
     ): Array<Spell> {
         val mode = if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
         return SpellFactory.drawSpells(
