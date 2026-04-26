@@ -50,6 +50,7 @@ class GameLogger {
             this.normalData!!.isPortalA = room.normalData!!.isPortalA.copyOf()
             this.normalData!!.isPortalB = room.normalData!!.isPortalB.copyOf()
             this.normalData!!.getOnWhichBoard = room.normalData!!.getOnWhichBoard.copyOf()
+            this.normalData!!.extraLines = room.normalData!!.extraLines
         }
     }
 
