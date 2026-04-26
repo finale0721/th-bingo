@@ -64,6 +64,8 @@ class BoardSpec(val size: Int) {
             if (best != null) {
                 result.add(best)
                 usedCells.addAll(best)
+            } else {
+                throw IllegalStateException("Failed to generate extra line ${lineNum + 1}/$count after $maxRetries retries")
             }
         }
         return result
