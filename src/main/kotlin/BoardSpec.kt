@@ -30,12 +30,73 @@ class BoardSpec(val size: Int) {
         return listOf(mainDiag, antiDiag)
     }
 
-    fun winningLines(extraLineCount: Int = 0): List<List<Int>> {
+    fun winningLines(extraLines: List<List<Int>> = emptyList()): List<List<Int>> {
         val lines = mutableListOf<List<Int>>()
         lines.addAll(rows())
         lines.addAll(cols())
         lines.addAll(diagonals())
+        lines.addAll(extraLines)
         return lines
+    }
+
+    /**
+     * Generate random extra winning lines for 6x6 boards.
+     * Each line is a 4-connected path of exactly [size] cells.
+     * Lines must not overlap each other, and each line must not share more than 3 cells
+     * with any base winning line (row/col/diag).
+     */
+    fun generateExtraLines(count: Int, rand: kotlin.random.Random): List<List<Int>> {
+        if (count <= 0 || size != 6) return emptyList()
+        val baseLines = rows() + cols() + diagonals()
+        val result = mutableListOf<List<Int>>()
+        val usedCells = mutableSetOf<Int>()
+        val maxRetries = 100
+
+        for (lineNum in 0 until count) {
+            var best: List<Int>? = null
+            for (retry in 0 until maxRetries) {
+                val path = generateRandomPath(rand, usedCells) ?: continue
+                val overlapWithBase = baseLines.count { bl -> path.count { it in bl } > 3 }
+                if (overlapWithBase > 0) continue
+                best = path
+                break
+            }
+            if (best != null) {
+                result.add(best)
+                usedCells.addAll(best)
+            }
+        }
+        return result
+    }
+
+    /**
+     * Generate a random 4-connected path of length [size] that does not use any cell in [exclude].
+     * Uses a random walk with backtracking.
+     */
+    private fun generateRandomPath(rand: kotlin.random.Random, exclude: Set<Int>): List<Int>? {
+        val allIndices = (0 until area).filter { it !in exclude }
+        if (allIndices.isEmpty()) return null
+        val start = allIndices.random(rand)
+        val path = mutableListOf(start)
+        val visited = mutableSetOf(start)
+
+        fun walk(): Boolean {
+            if (path.size == size) return true
+            val current = path.last()
+            val neighbors = neighbors4(current)
+                .filter { it !in visited && it !in exclude }
+                .shuffled(rand)
+            for (n in neighbors) {
+                path.add(n)
+                visited.add(n)
+                if (walk()) return true
+                path.removeAt(path.lastIndex)
+                visited.remove(n)
+            }
+            return false
+        }
+
+        return if (walk()) path else null
     }
 
     fun outerRingIndices(): List<Int> {

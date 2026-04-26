@@ -25,6 +25,13 @@ object RoomTypeNormal : RoomType {
         if (room.roomConfig.blindSetting > 1) {
             handleBlindSettings(room)
         }
+        // 6x6 extra lines — single copy shared by both boards
+        if (room.boardSpec.size == 6 && room.roomConfig.extraLineCount > 0) {
+            val rand = ThreadLocalRandom.current().asKotlinRandom()
+            room.normalData!!.extraLines = room.boardSpec.generateExtraLines(
+                room.roomConfig.extraLineCount, rand
+            )
+        }
 
         if (room.roomConfig.useAI && room.players[1]!!.name.equals(Store.ROBOT_NAME)) {
             if (room.roomConfig.blindSetting > 1 || room.roomConfig.dualBoard > 0) {
