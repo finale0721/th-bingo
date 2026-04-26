@@ -38,13 +38,15 @@ object RoomTypeLink : RoomType {
         boardSize: Int,
         useFixedHighLevelLayout: Boolean
     ): Array<Spell> {
-        return SpellFactory.randSpellsLink(
-            spellCardVersion, games, ranks, when (difficulty) {
-                1 -> Difficulty.E
-                2 -> Difficulty.N
-                3 -> Difficulty.L
-                else -> Difficulty.random()
-            }
+        val diffObj = when (difficulty) {
+            1 -> Difficulty.E
+            2 -> Difficulty.N
+            3 -> Difficulty.L
+            else -> Difficulty.random()
+        }
+        return SpellFactory.drawSpells(
+            DifficultyMode.LINK, spellCardVersion, games, ranks,
+            difficultyObj = diffObj
         )
     }
 

@@ -145,6 +145,12 @@ object RoomTypeNormal : RoomType {
         throw HandlerException("不支持下一回合的游戏类型")
     }
 
+    private fun resolveDifficultyMode(difficulty: Int?): DifficultyMode = when {
+        difficulty == 6 -> DifficultyMode.CUSTOM
+        difficulty != null && difficulty >= 4 -> DifficultyMode.OD
+        else -> DifficultyMode.NORMAL
+    }
+
     @Throws(HandlerException::class)
     override fun randSpells(
         spellCardVersion: Int,
@@ -154,44 +160,37 @@ object RoomTypeNormal : RoomType {
         boardSize: Int,
         useFixedHighLevelLayout: Boolean
     ): Array<Spell> {
-        difficulty?.let {
-            if (it == 6) {
-                return SpellFactory.randSpellsCustom(
-                    spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout
-                )
-            }
-            if (it >= 4)
-                return SpellFactory.randSpellsOD(
-                    spellCardVersion, games, ranks, difficulty, boardSize
-                )
-        }
-        return SpellFactory.randSpells(
-            spellCardVersion, games, ranks, when (difficulty) {
+        val mode = resolveDifficultyMode(difficulty)
+        val diffObj = when (mode) {
+            DifficultyMode.NORMAL -> when (difficulty) {
                 1 -> Difficulty.E
                 2 -> Difficulty.N
                 3 -> Difficulty.L
                 else -> Difficulty.random()
-            }, boardSize, useFixedHighLevelLayout
+            }
+            else -> null
+        }
+        return SpellFactory.drawSpells(
+            mode, spellCardVersion, games, ranks, difficulty,
+            boardSize = boardSize, useFixedHighLevelLayout = useFixedHighLevelLayout,
+            difficultyObj = diffObj,
         )
     }
 
     override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, useFixedHighLevelLayout: Boolean): IntArray {
-        difficulty?.let {
-            if (it == 6) {
-                return SpellFactory.randSpellsCustomStarArray(
-                    Difficulty.settingCache, boardSize, useFixedHighLevelLayout
-                )
-            }
-            if (it >= 4)
-                return SpellFactory.randSpellsODStarArray(difficulty, boardSize)
-        }
-        return SpellFactory.randSpellsStarArray(
-            when (difficulty) {
+        val mode = resolveDifficultyMode(difficulty)
+        val diffObj = when (mode) {
+            DifficultyMode.NORMAL -> when (difficulty) {
                 1 -> Difficulty.E
                 2 -> Difficulty.N
                 3 -> Difficulty.L
                 else -> Difficulty.random()
-            }, boardSize, useFixedHighLevelLayout
+            }
+            else -> null
+        }
+        return SpellFactory.buildStarArray(
+            mode, difficulty, difficultyObj = diffObj,
+            boardSize = boardSize, useFixedHighLevelLayout = useFixedHighLevelLayout,
         )
     }
 
@@ -207,20 +206,8 @@ object RoomTypeNormal : RoomType {
         if (stars == null) {
             return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, useFixedHighLevelLayout)
         }
-        difficulty?.let {
-            if (it == 6) {
-                return SpellFactory.randSpellsCustomWithStar(
-                    spellCardVersion, games, ranks, stars, boardSize
-                )
-            }
-            if (it >= 4)
-                return SpellFactory.randSpellsODWithStar(
-                    spellCardVersion, games, ranks, stars, boardSize
-                )
-        }
-        return SpellFactory.randSpellsWithStar(
-            spellCardVersion, games, ranks, stars, boardSize
-        )
+        val mode = resolveDifficultyMode(difficulty)
+        return SpellFactory.drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize)
     }
 
     override fun handleSelectSpell(room: Room, playerIndex: Int, spellIndex: Int) {

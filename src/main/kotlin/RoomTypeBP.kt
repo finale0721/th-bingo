@@ -70,13 +70,10 @@ object RoomTypeBP : RoomType {
         boardSize: Int,
         useFixedHighLevelLayout: Boolean
     ): Array<Spell> {
-        difficulty?.let {
-            if (it >= 4) {
-                return SpellFactory.randSpellsBPOD(spellCardVersion, games, ranks, difficulty)
-            }
-        }
-        return SpellFactory.randSpellsBP(
-            spellCardVersion, games, ranks, when (difficulty) {
+        val mode = if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
+        return SpellFactory.drawSpells(
+            mode, spellCardVersion, games, ranks, difficulty,
+            bpLv1Count = when (difficulty) {
                 1, 2 -> 10
                 else -> 5
             }

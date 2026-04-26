@@ -18,6 +18,22 @@ import kotlin.math.max
 import kotlin.math.min
 import kotlin.random.Random
 
+/**
+ * Describes how a placeholder star value should be upgraded during card drawing.
+ * Used by [draw] to implement the OD and BPOD upgrade/降级 logic.
+ *
+ * @param placeholderStar the star value in the stars array that triggers this rule (e.g. 7 for OD 5-star, 13 for BPOD 3-star)
+ * @param targetStar the actual star level to try drawing first (e.g. 5 for OD, 3 for BPOD)
+ * @param fallbackStar the star level to assign if target cards are exhausted (e.g. 6→3 for OD, 2 for BPOD)
+ * @param drawPriority whether these positions should be drawn before low-star cards (true for OD 4/5, false for BPOD where only 3-star is priority)
+ */
+data class UpgradeRule(
+    val placeholderStar: Int,
+    val targetStar: Int,
+    val fallbackStar: Int,
+    val drawPriority: Boolean = true,
+)
+
 object SpellConfig {
     /** 标准赛和Link赛用同一个配置 */
     const val NORMAL_GAME = 1
@@ -25,12 +41,24 @@ object SpellConfig {
     /** BP赛的配置 */
     const val BP_GAME = 2
 
+    /** Standard game: no upgrade rules */
+    private val NO_UPGRADES = emptyList<UpgradeRule>()
+
+    /** OD game: star=7 → try 5★ (fallback 6→3), star=6 → try 4★ (fallback 3) */
+    private val OD_UPGRADES = listOf(
+        UpgradeRule(placeholderStar = 7, targetStar = 5, fallbackStar = 3, drawPriority = true),
+        UpgradeRule(placeholderStar = 6, targetStar = 4, fallbackStar = 3, drawPriority = true),
+    )
+
+    /** BPOD game: star=13 → try 3★ (fallback 2) */
+    private val BPOD_UPGRADES = listOf(
+        UpgradeRule(placeholderStar = 13, targetStar = 3, fallbackStar = 2, drawPriority = false),
+    )
+
     private var rollSpellLeftCache = HashMap<Boolean, HashMap<Int, LinkedList<Spell>>>()
 
-    // 每次抽取后，权重的变化率？
     var weightVar = 1.0f
 
-    // 各作品的默认权重？
     val weightDict: HashMap<String, Float> = HashMap()
 
     private fun calProb(configLevel: Int): Float {
@@ -77,122 +105,180 @@ object SpellConfig {
         return rollSpellLeftCache
     }
 
-    private fun constructRollCache(map: HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>) {
-        // 4. 存储抽取结束后剩余的符卡 (新增逻辑)
-        val remainingSpellsTemp = HashMap<Boolean, HashMap<Int, LinkedList<Spell>>>()
+    // ---- Shared drawing helpers ----
 
-        // 遍历在抽取过程中被修改的 map 变量
-        for ((star, isExMap) in map) {
-            for ((isEx, gameMap) in isExMap) {
-                val spellsForStarAndEx = LinkedList<Spell>()
-                // 将该 isEx 和 star 下所有作品中剩余的符卡收集起来
-                for ((game, spellList) in gameMap) {
-                    spellsForStarAndEx.addAll(spellList)
-                }
-                // 如果有剩余符卡，则按 isEx -> star 的结构存储
-                if (spellsForStarAndEx.isNotEmpty()) {
-                    val starMap = remainingSpellsTemp.getOrPut(isEx) { HashMap() }
-                    starMap[star] = spellsForStarAndEx
-                }
-            }
-        }
-        // 将整理好的剩余符卡赋值给 SpellConfig 的成员变量
-        rollSpellLeftCache = remainingSpellsTemp
-    }
-
-    /**
-     * 加权随机选择游戏
-     * @param gameMap 游戏映射表
-     * @param weightMap 权重映射表
-     * @param rand 随机数生成器
-     * @return 选择的游戏名称，如果游戏映射表为空则返回null
-     */
-    private fun weightedRandomGame(
-        gameMap: HashMap<String, LinkedList<Spell>>,
-        weightMap: HashMap<String, Float>,
+    private fun buildSpellMap(
+        type: Int,
+        fileId: Int,
+        games: Array<String>,
+        ranks: Array<String>?,
         rand: Random
-    ): String? {
-        if (gameMap.isEmpty()) return null
-
-        // 计算总权重
-        val totalWeight = weightMap.entries
-            .filter { it.key in gameMap.keys } // 只考虑当前可用的游戏
-            .sumOf { it.value.toDouble() }
-
-        if (totalWeight <= 0.0) {
-            // 如果总权重为0或负数，使用均匀随机
-            return gameMap.keys.randomOrNull(rand)
-        }
-
-        // 生成随机数
-        val randomValue = max(min(rand.nextDouble() * totalWeight, 10000.0), 0.0001)
-        var currentWeight = 0.0
-
-        // 根据权重选择游戏
-        for ((game, weight) in weightMap) {
-            if (game !in gameMap.keys) continue
-            currentWeight += weight.toDouble()
-            if (randomValue <= currentWeight) {
-                return game
+    ): HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>> {
+        val map = HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>()
+        for ((star, isExMap) in get(type, fileId)) {
+            val isExMap2 = HashMap<Boolean, HashMap<String, LinkedList<Spell>>>()
+            for ((isEx, gameMap) in isExMap) {
+                for ((game, spellList) in gameMap) {
+                    if (game !in games) continue
+                    val spellList2 = spellList.filter { ranks == null || it.rank in ranks }
+                    if (spellList2.isNotEmpty()) {
+                        val gameMap2 = isExMap2.getOrPut(isEx) { HashMap<String, LinkedList<Spell>>() }
+                        gameMap2[game] = LinkedList(spellList2.shuffled(rand))
+                    }
+                }
             }
+            if (isExMap2.isNotEmpty()) map[star] = isExMap2
         }
-
-        // 如果由于浮点精度问题没有选中，返回最后一个游戏
-        return weightMap.keys.lastOrNull { it in gameMap.keys }
+        return map
     }
 
-    /**
-     * 从游戏映射表中抽取符卡（加权随机版本）
-     * @param gameMap 游戏映射表
-     * @param weightMap 权重映射表
-     * @param spellIds 已抽取的符卡ID集合（用于去重）
-     * @param rand 随机数生成器
-     * @return 抽取的符卡，如果无法抽取则返回null
-     */
-    private fun drawSpellWithWeight(
-        gameMap: HashMap<String, LinkedList<Spell>>,
+    private fun buildWeightMaps(
+        map: HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>,
+        maxStar: Int
+    ): HashMap<Int, HashMap<String, Float>> {
+        val weightMaps = HashMap<Int, HashMap<String, Float>>()
+        for (i in 1..maxStar) {
+            weightMaps[i] = HashMap(weightDict).apply {
+                keys.retainAll { game ->
+                    map.values.any { isExMap ->
+                        isExMap.values.any { gameMap -> game in gameMap.keys }
+                    }
+                }
+            }
+        }
+        return weightMaps
+    }
+
+    private fun placeExSpells(
+        result: Array<Spell?>,
+        stars: IntArray,
+        exPos: IntArray,
+        map: HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>,
         weightMaps: HashMap<Int, HashMap<String, Float>>,
         spellIds: HashSet<String>,
         rand: Random,
-        star: Int,
-    ): Spell? {
-        var spell: Spell? = null
-        var selectedGame: String? = null
-        val weightMap = weightMaps.get(star) ?: defaultWeightMap(gameMap.keys)
+        exDrawStar: Int,
+    ) {
+        for (i in exPos.indices) {
+            var index = exPos[i]
+            var firstTry = true
+            tryOnce@ while (true) {
+                if (firstTry) {
+                    firstTry = false
+                } else {
+                    index = (index + 1) % result.size
+                    if (index == exPos[i]) throw HandlerException("EX符卡数量不足")
+                    if (index in exPos) continue
+                }
+                val isExMap = map[stars[index]] ?: continue
+                val gameMap = isExMap[true] ?: continue
 
-        do {
-            selectedGame = weightedRandomGame(gameMap, weightMap, rand) ?: return null
-            val spellList = gameMap[selectedGame] ?: continue
+                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, exDrawStar)
+                    ?: continue@tryOnce
 
-            if (spellList.isEmpty()) {
-                gameMap.remove(selectedGame)
-                weightMap.remove(selectedGame)
-                continue
+                exPos[i] = index
+                result[index] = spell
+                break
             }
+        }
+    }
 
-            spell = spellList.removeFirst()
-            if (spellList.isEmpty()) {
-                gameMap.remove(selectedGame)
-                weightMap.remove(selectedGame)
-            }
-        } while (!spellIds.add("${spell!!.game}-${spell.id}"))
+    // ---- Unified draw method ----
 
-        for (wm in weightMaps.values) {
-            if (wm.containsKey(selectedGame)) {
-                wm[selectedGame] = wm[selectedGame]!!.times(weightVar)
+    /**
+     * Unified spell drawing method. Replaces the old get(), getOD(), getBPOD().
+     *
+     * @param type NORMAL_GAME or BP_GAME
+     * @param fileId spell card file version
+     * @param games which Touhou games to include
+     * @param ranks rank filter (null = all)
+     * @param exPos EX spell positions
+     * @param stars star distribution array (may contain placeholder values like 7/6/13)
+     * @param rand random number generator
+     * @param upgrades rules for placeholder-star upgrade logic; empty = no upgrades (standard mode)
+     * @param maxWeightStar the max star level for weight map initialization (6 for normal/OD, 4 for BPOD)
+     * @param exDrawStar the star level used for weighted drawing of EX spells (6 for normal/OD, 4 for BPOD)
+     * @param priorityStars star values that should be drawn first before general fill (e.g. 4,5 for OD; 3 for BPOD)
+     */
+    private fun draw(
+        type: Int,
+        fileId: Int,
+        games: Array<String>,
+        ranks: Array<String>?,
+        exPos: IntArray,
+        stars: IntArray,
+        rand: Random,
+        upgrades: List<UpgradeRule> = NO_UPGRADES,
+        maxWeightStar: Int = 6,
+        exDrawStar: Int = 6,
+        priorityStars: Set<Int> = emptySet(),
+    ): Array<Spell> {
+        val map = buildSpellMap(type, fileId, games, ranks, rand)
+        val spellIds = HashSet<String>()
+        val result = arrayOfNulls<Spell>(stars.size)
+        val weightMaps = buildWeightMaps(map, maxWeightStar)
+
+        // Phase 1: Draw priority stars (e.g. 4★ and 5★ for OD, 3★ for BPOD)
+        for (i in stars.indices) {
+            val star = stars[i]
+            if (star !in priorityStars) continue
+
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
+
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
+
+            result[i] = spell
+        }
+
+        // Phase 2: Upgrade placeholders (e.g. star=7→5★, star=6→4★ for OD; star=13→3★ for BPOD)
+        for (rule in upgrades) {
+            val placeholderIndices = stars.indices.filter { stars[it] == rule.placeholderStar }.toMutableList()
+            placeholderIndices.shuffle(rand)
+            for (i in placeholderIndices) {
+                try {
+                    val isExMap = map[rule.targetStar] ?: continue
+                    val gameMap = isExMap[false] ?: continue
+
+                    val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, rule.targetStar)
+
+                    spell?.let {
+                        result[i] = it
+                    } ?: run {
+                        stars[i] = rule.fallbackStar
+                    }
+                } catch (e: Exception) {
+                    stars[i] = rule.fallbackStar
+                }
             }
         }
 
-        return spell
+        // Phase 3: Fill remaining positions (1-3 star or 1-2 star)
+        for (i in stars.indices) {
+            if (result[i] != null) continue
+
+            val star = stars[i]
+            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
+            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
+
+            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
+                ?: throw HandlerException("${star}星符卡数量不足")
+
+            result[i] = spell
+        }
+
+        // Phase 4: Place EX spells
+        placeExSpells(result, stars, exPos, map, weightMaps, spellIds, rand, exDrawStar)
+
+        constructRollCache(map)
+        return result.filterNotNull().toTypedArray()
     }
 
+    // ---- Public API (thin wrappers over draw) ----
+
     /**
-     * 随符卡
-     * @param type 可以传入 [NORMAL_GAME] 或 [BP_GAME]
-     * @param exPos ex符卡的位置
-     * @param stars 星级的分布
-     *
-     * map：星级 int ->是否EX boolean->作品 String->Spell
+     * 标准赛/Link赛随符卡
      */
     fun get(
         type: Int,
@@ -202,78 +288,10 @@ object SpellConfig {
         exPos: IntArray,
         stars: IntArray,
         rand: Random
-    ): Array<Spell> {
-        val map = HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>()
-        for ((star, isExMap) in get(type, fileId)) {
-            val isExMap2 = HashMap<Boolean, HashMap<String, LinkedList<Spell>>>()
-            for ((isEx, gameMap) in isExMap) {
-                for ((game, spellList) in gameMap) {
-                    if (game !in games) continue
-                    val spellList2 = spellList.filter { ranks == null || it.rank in ranks }
-                    if (spellList2.isNotEmpty()) {
-                        val gameMap2 = isExMap2.getOrPut(isEx) { HashMap<String, LinkedList<Spell>>() }
-                        gameMap2[game] = LinkedList(spellList2.shuffled(rand))
-                    }
-                }
-            }
-            if (isExMap2.isNotEmpty()) map[star] = isExMap2
-        }
-        val spellIds = HashSet<String>()
-
-        // 创建权重字典的副本
-        val weightMaps = HashMap<Int, HashMap<String, Float>>()
-        for (i in 1..6) {
-            weightMaps[i] = HashMap(weightDict).apply {
-                // 只保留当前可用的游戏的权重
-                keys.retainAll { game ->
-                    map.values.any { isExMap ->
-                        isExMap.values.any { gameMap -> game in gameMap.keys }
-                    }
-                }
-            }
-        }
-
-        val result = Array(stars.size) { index ->
-            val star = stars[index]
-            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
-
-            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
-                ?: throw HandlerException("${star}星符卡数量不足")
-            spell
-        }
-
-        for (i in exPos.indices) {
-            var index = exPos[i]
-            var firstTry = true
-            tryOnce@ while (true) {
-                if (firstTry) {
-                    firstTry = false
-                } else {
-                    index = (index + 1) % result.size
-                    if (index == exPos[i]) throw HandlerException("EX符卡数量不足")
-                    if (index in exPos) continue
-                }
-                val isExMap = map[stars[index]] ?: continue
-                val gameMap = isExMap[true] ?: continue
-
-                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 6)
-                    ?: continue@tryOnce
-
-                exPos[i] = index
-                result[index] = spell
-                break
-            }
-        }
-        constructRollCache(map)
-        return result
-    }
+    ): Array<Spell> = draw(type, fileId, games, ranks, exPos, stars, rand)
 
     /**
-     * 随符卡
-     * @param type 可以传入 [NORMAL_GAME]
-     * @param exPos ex符卡的位置
-     * @param stars 星级的分布
+     * OD赛随符卡 (4/5★优先抽取，star=7/6升级降级逻辑)
      */
     fun getOD(
         type: Int,
@@ -283,137 +301,14 @@ object SpellConfig {
         exPos: IntArray,
         stars: IntArray,
         rand: Random
-    ): Array<Spell> {
-        val map = HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>()
-        for ((star, isExMap) in get(type, fileId)) {
-            val isExMap2 = HashMap<Boolean, HashMap<String, LinkedList<Spell>>>()
-            for ((isEx, gameMap) in isExMap) {
-                for ((game, spellList) in gameMap) {
-                    if (game !in games) continue
-                    val spellList2 = spellList.filter { ranks == null || it.rank in ranks }
-                    if (spellList2.isNotEmpty()) {
-                        val gameMap2 = isExMap2.getOrPut(isEx) { HashMap<String, LinkedList<Spell>>() }
-                        gameMap2[game] = LinkedList(spellList2.shuffled(rand))
-                    }
-                }
-            }
-            if (isExMap2.isNotEmpty()) map[star] = isExMap2
-        }
-        val spellIds = HashSet<String>()
-        val result = arrayOfNulls<Spell>(stars.size)
-
-        // 创建权重字典的副本
-        val weightMaps = HashMap<Int, HashMap<String, Float>>()
-        for (i in 1..6) {
-            weightMaps[i] = HashMap(weightDict).apply {
-                // 只保留当前可用的游戏的权重
-                keys.retainAll { game ->
-                    map.values.any { isExMap ->
-                        isExMap.values.any { gameMap -> game in gameMap.keys }
-                    }
-                }
-            }
-        }
-
-        // 原有的4/5级卡抽取逻辑保留，保证基础的分布
-        for (i in stars.indices) {
-            val star = stars[i]
-            if (star !in 4..5) continue
-
-            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
-
-            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
-                ?: throw HandlerException("${star}星符卡数量不足")
-
-            result[i] = spell
-        }
-
-        // 5级卡替换，若5级卡数量不足，将其替换为待替换的4级。
-        val star15Indices = stars.indices.filter { stars[it] == 7 }.toMutableList()
-        star15Indices.shuffle(rand) // 替换项洗牌，保证卡不足时分布均匀
-        for (i in star15Indices) {
-            try {
-                val isExMap = map[5] ?: continue
-                val gameMap = isExMap[false] ?: continue
-
-                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 5)
-
-                spell?.let {
-                    result[i] = it
-                } ?: run {
-                    stars[i] = 6 // 降级处理
-                }
-            } catch (e: Exception) {
-                stars[i] = 6
-            }
-        }
-
-        // 4级卡替换。不足则改为生成3级。
-        val star14Indices = stars.indices.filter { stars[it] == 6 }.toMutableList()
-        star14Indices.shuffle(rand)
-        for (i in star14Indices) {
-            try {
-                val isExMap = map[4] ?: continue
-                val gameMap = isExMap[false] ?: continue
-
-                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 4)
-
-                spell?.let {
-                    result[i] = it
-                } ?: run {
-                    stars[i] = 3 // 降级处理
-                }
-            } catch (e: Exception) {
-                stars[i] = 3
-            }
-        }
-
-        // 1-3级卡生成
-        for (i in stars.indices) {
-            if (result[i] != null) continue
-
-            val star = stars[i]
-            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
-
-            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
-                ?: throw HandlerException("${star}星符卡数量不足")
-
-            result[i] = spell
-        }
-
-        for (i in exPos.indices) {
-            var index = exPos[i]
-            var firstTry = true
-            tryOnce@ while (true) {
-                if (firstTry) {
-                    firstTry = false
-                } else {
-                    index = (index + 1) % result.size
-                    if (index == exPos[i]) throw HandlerException("EX符卡数量不足")
-                    if (index in exPos) continue
-                }
-                val isExMap = map[stars[index]] ?: continue
-                val gameMap = isExMap[true] ?: continue
-
-                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 6)
-                    ?: continue@tryOnce
-
-                exPos[i] = index
-                result[index] = spell
-                break
-            }
-        }
-        constructRollCache(map)
-        return result.filterNotNull().toTypedArray()
-    }
+    ): Array<Spell> = draw(
+        type, fileId, games, ranks, exPos, stars, rand,
+        upgrades = OD_UPGRADES,
+        priorityStars = setOf(4, 5),
+    )
 
     /**
-     * 随符卡
-     * @param type 可以传入 [BP_GAME]
-     * @param exPos ex符卡的位置
-     * @param stars 星级的分布
+     * BPOD赛随符卡 (3★优先抽取，star=13升级降级逻辑)
      */
     fun getBPOD(
         type: Int,
@@ -423,111 +318,13 @@ object SpellConfig {
         exPos: IntArray,
         stars: IntArray,
         rand: Random
-    ): Array<Spell> {
-        val map = HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>()
-        for ((star, isExMap) in get(type, fileId)) {
-            val isExMap2 = HashMap<Boolean, HashMap<String, LinkedList<Spell>>>()
-            for ((isEx, gameMap) in isExMap) {
-                for ((game, spellList) in gameMap) {
-                    if (game !in games) continue
-                    val spellList2 = spellList.filter { ranks == null || it.rank in ranks }
-                    if (spellList2.isNotEmpty()) {
-                        val gameMap2 = isExMap2.getOrPut(isEx) { HashMap<String, LinkedList<Spell>>() }
-                        gameMap2[game] = LinkedList(spellList2.shuffled(rand))
-                    }
-                }
-            }
-            if (isExMap2.isNotEmpty()) map[star] = isExMap2
-        }
-        val spellIds = HashSet<String>()
-        val result = arrayOfNulls<Spell>(stars.size)
-
-        // 创建权重字典的副本
-        val weightMaps = HashMap<Int, HashMap<String, Float>>()
-        for (i in 1..4) {
-            weightMaps[i] = HashMap(weightDict).apply {
-                // 只保留当前可用的游戏的权重
-                keys.retainAll { game ->
-                    map.values.any { isExMap ->
-                        isExMap.values.any { gameMap -> game in gameMap.keys }
-                    }
-                }
-            }
-        }
-
-        // 原有的3级卡抽取逻辑保留，保证基础的分布
-        for (i in stars.indices) {
-            val star = stars[i]
-            if (star != 3) continue
-
-            val isExMap = map[3] ?: throw HandlerException("${3}星符卡数量不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${3}星符卡数量不足")
-
-            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 3)
-                ?: throw HandlerException("${star}星符卡数量不足")
-
-            result[i] = spell
-        }
-
-        // 3级卡替换，若3级卡数量不足，将其替换为待替换的2级。
-        val star3pIndices = stars.indices.filter { stars[it] == 13 }.toMutableList()
-        star3pIndices.shuffle(rand) // 替换项洗牌，保证卡不足时分布均匀
-        for (i in star3pIndices) {
-            try {
-                val isExMap = map[3] ?: continue
-                val gameMap = isExMap[false] ?: continue
-
-                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 3)
-
-                spell?.let {
-                    result[i] = it
-                } ?: run {
-                    stars[i] = 2 // 降级处理
-                }
-            } catch (e: Exception) {
-                stars[i] = 2
-            }
-        }
-
-        // 1-2级卡生成
-        for (i in stars.indices) {
-            if (result[i] != null) continue
-
-            val star = stars[i]
-            val isExMap = map[star] ?: throw HandlerException("${star}星符卡数量不足")
-            val gameMap = isExMap[false] ?: throw HandlerException("${star}星符卡数量不足")
-
-            val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, star)
-                ?: throw HandlerException("${star}星符卡数量不足")
-
-            result[i] = spell
-        }
-
-        for (i in exPos.indices) {
-            var index = exPos[i]
-            var firstTry = true
-            tryOnce@ while (true) {
-                if (firstTry) {
-                    firstTry = false
-                } else {
-                    index = (index + 1) % result.size
-                    if (index == exPos[i]) throw HandlerException("EX符卡数量不足")
-                    if (index in exPos) continue
-                }
-                val isExMap = map[stars[index]] ?: continue
-                val gameMap = isExMap[true] ?: continue
-
-                val spell = drawSpellWithWeight(gameMap, weightMaps, spellIds, rand, 4)
-                    ?: continue@tryOnce
-
-                exPos[i] = index
-                result[index] = spell
-                break
-            }
-        }
-        constructRollCache(map)
-        return result.filterNotNull().toTypedArray()
-    }
+    ): Array<Spell> = draw(
+        type, fileId, games, ranks, exPos, stars, rand,
+        upgrades = BPOD_UPGRADES,
+        maxWeightStar = 4,
+        exDrawStar = 4,
+        priorityStars = setOf(3),
+    )
 
     fun getSpellById(type: Int, fileId: Int, id: Int): Spell? = cache.get(type)?.get(fileId)?.spellsByIndex?.get(id)
 
@@ -606,28 +403,17 @@ object SpellConfig {
     private val isWindows = System.getProperty("os.name").lowercase().contains("windows")
 
     fun get(type: Int, fileCode: Int): Map<Int, Map<Boolean, Map<String, List<Spell>>>> {
-        // 读取控制文件获取文件名和更新标记
         val (fileName, needUpdate) = parseControlFile(fileCode)
-
-        // 获取对应类型和文件代码的配置
         val (config, typeCache) = getConfig(type, fileCode)
-
-        // 创建文件对象并验证
         val file = File(fileName).apply {
             if (!exists() || extension != "xlsx" || name.startsWith("log")) {
                 throw HandlerException("无效符卡文件: $fileName")
             }
         }
-
-        // 计算当前文件MD5
         val currentMd5 = md5sum(file.path)?.let { hashSetOf(it) }
-
-        // 校验缓存是否需要更新
         if (!needUpdate && currentMd5 != null && config.md5sum == currentMd5) {
             return config.allSpells
         }
-
-        // 重新加载文件数据
         XSSFWorkbook(OPCPackage.open(file, PackageAccess.READ)).use { wb ->
             val sheet = wb.getSheetAt(0)
             val tempSpells = HashMap<Int, HashMap<Boolean, HashMap<String, ArrayList<Spell>>>>()
@@ -644,15 +430,11 @@ object SpellConfig {
                 }
             }
 
-            // 更新缓存
             config.md5sum = currentMd5
             config.allSpells = tempSpells
             config.spellsByIndex = tempIndices
         }
-
-        // 处理更新标记
         if (needUpdate) updateControlFile(fileCode)
-
         return config.allSpells
     }
 
@@ -681,7 +463,6 @@ object SpellConfig {
         return typeCache.getOrPut(fileCode) { Config(spellBuilder) } to typeCache
     }
 
-    // 每一行：spellcard_version(int), filename(String), (Nullable)update
     private fun updateControlFile(fileCode: Int) {
         File("spellcard_version.txt").let { controlFile ->
             val updatedLines = controlFile.readLines().map { line ->
@@ -698,6 +479,88 @@ object SpellConfig {
         }
     }
 
-    // 修改后的缓存结构
+    private fun constructRollCache(map: HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>) {
+        val remainingSpellsTemp = HashMap<Boolean, HashMap<Int, LinkedList<Spell>>>()
+        for ((star, isExMap) in map) {
+            for ((isEx, gameMap) in isExMap) {
+                val spellsForStarAndEx = LinkedList<Spell>()
+                for ((game, spellList) in gameMap) {
+                    spellsForStarAndEx.addAll(spellList)
+                }
+                if (spellsForStarAndEx.isNotEmpty()) {
+                    val starMap = remainingSpellsTemp.getOrPut(isEx) { HashMap() }
+                    starMap[star] = spellsForStarAndEx
+                }
+            }
+        }
+        rollSpellLeftCache = remainingSpellsTemp
+    }
+
+    private fun weightedRandomGame(
+        gameMap: HashMap<String, LinkedList<Spell>>,
+        weightMap: HashMap<String, Float>,
+        rand: Random
+    ): String? {
+        if (gameMap.isEmpty()) return null
+
+        val totalWeight = weightMap.entries
+            .filter { it.key in gameMap.keys }
+            .sumOf { it.value.toDouble() }
+
+        if (totalWeight <= 0.0) {
+            return gameMap.keys.randomOrNull(rand)
+        }
+
+        val randomValue = max(min(rand.nextDouble() * totalWeight, 10000.0), 0.0001)
+        var currentWeight = 0.0
+
+        for ((game, weight) in weightMap) {
+            if (game !in gameMap.keys) continue
+            currentWeight += weight.toDouble()
+            if (randomValue <= currentWeight) {
+                return game
+            }
+        }
+
+        return weightMap.keys.lastOrNull { it in gameMap.keys }
+    }
+
+    private fun drawSpellWithWeight(
+        gameMap: HashMap<String, LinkedList<Spell>>,
+        weightMaps: HashMap<Int, HashMap<String, Float>>,
+        spellIds: HashSet<String>,
+        rand: Random,
+        star: Int,
+    ): Spell? {
+        var spell: Spell? = null
+        var selectedGame: String? = null
+        val weightMap = weightMaps.get(star) ?: defaultWeightMap(gameMap.keys)
+
+        do {
+            selectedGame = weightedRandomGame(gameMap, weightMap, rand) ?: return null
+            val spellList = gameMap[selectedGame] ?: continue
+
+            if (spellList.isEmpty()) {
+                gameMap.remove(selectedGame)
+                weightMap.remove(selectedGame)
+                continue
+            }
+
+            spell = spellList.removeFirst()
+            if (spellList.isEmpty()) {
+                gameMap.remove(selectedGame)
+                weightMap.remove(selectedGame)
+            }
+        } while (!spellIds.add("${spell!!.game}-${spell.id}"))
+
+        for (wm in weightMaps.values) {
+            if (wm.containsKey(selectedGame)) {
+                wm[selectedGame] = wm[selectedGame]!!.times(weightVar)
+            }
+        }
+
+        return spell
+    }
+
     private val cache = mutableMapOf<Int, MutableMap<Int, Config>>()
 }
