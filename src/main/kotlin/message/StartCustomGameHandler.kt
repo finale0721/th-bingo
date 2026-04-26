@@ -21,8 +21,9 @@ object StartCustomGameHandler : RequestHandler {
         msg.validate()
         msg.roomConfig.validate()
 
-        // 一般的游戏开始逻辑
+        // Apply the new roomConfig first so that boardSpec/boardArea reflect the new board size
         room.type.resetData(room)
+        room.roomConfig = msg.roomConfig
         room.type.setUp(room)
 
         room.spells2 = emptyArray()
@@ -41,7 +42,6 @@ object StartCustomGameHandler : RequestHandler {
         // 自定义处理环节
         room.isCustomGame = true
         room.normalData = NormalData.create(room.boardSpec)
-        room.roomConfig = msg.roomConfig
 
         val spellStatusInts = msg.spellStatus.toIntArray()
         room.spellStatus = spellStatusInts.map { it.toSpellStatus() }.toTypedArray()
