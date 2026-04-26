@@ -40,7 +40,7 @@ object StartCustomGameHandler : RequestHandler {
 
         // 自定义处理环节
         room.isCustomGame = true
-        room.normalData = NormalData()
+        room.normalData = NormalData.create(room.boardSpec)
         room.roomConfig = msg.roomConfig
 
         val spellStatusInts = msg.spellStatus.toIntArray()
@@ -48,7 +48,7 @@ object StartCustomGameHandler : RequestHandler {
         room.spellStatusInPlayerClient = Array(2) { spellStatusInts }
 
         if (room.roomConfig.dualBoard > 0) {
-            val normalData = NormalData()
+            val normalData = NormalData.create(room.boardSpec)
             normalData.whichBoardA = 0
             normalData.whichBoardB = 0
             normalData.isPortalA = msg.isPortalA.toTypedArray()

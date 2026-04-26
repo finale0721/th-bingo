@@ -25,6 +25,10 @@ class NormalData {
     @SerialName("get_on_which_board")
     var getOnWhichBoard = Array(25) { 0 }
 
+    /** 6x6 extra winning lines */
+    @SerialName("extra_lines")
+    var extraLines: List<List<Int>> = emptyList()
+
     companion object {
         fun create(board: BoardSpec): NormalData {
             val data = NormalData()

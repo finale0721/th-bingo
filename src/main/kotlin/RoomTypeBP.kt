@@ -15,7 +15,8 @@ object RoomTypeBP : RoomType {
     override val canPause = true
 
     override fun onStart(room: Room) {
-        room.bpData = BpData(
+        room.bpData = BpData.create(
+            room.boardSpec,
             whoseTurn = if (room.lastWinner > 0) 2 - room.lastWinner else Random.nextInt(2),
             banPick = 1,
         )
