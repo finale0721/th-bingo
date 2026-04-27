@@ -380,16 +380,19 @@ object RoomTypeNormal : RoomType {
         var st = status
         if (st.isSelectStatus()) {
             if ((room.roomConfig.reservedType ?: 0) == 0) {
-                // 个人赛对方收了五张卡之后，不再可以看到对方的选卡
-                if (playerIndex == 0 && room.spellStatus!!.count { it == RIGHT_GET } >= 5) {
+                // 个人赛对方达到隐藏阈值后，不再可以看到对方的选卡
+                if (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) {
                     if (status == RIGHT_SELECT) st = NONE
                     else if (status == BOTH_SELECT) st = LEFT_SELECT
-                } else if (playerIndex == 1 && room.spellStatus!!.count { it == LEFT_GET } >= 5) {
+                } else if (playerIndex == 1 && shouldHideSelectionsOf(room, 0)) {
                     if (status == LEFT_SELECT) st = NONE
                     else if (status == BOTH_SELECT) st = RIGHT_SELECT
                 }
-            } else if (room.spellStatus!!.count { it == LEFT_GET || it == RIGHT_GET } >= 5) {
-                // 团体赛双方合计收了五张卡之后，不再可以看到对方的选卡
+            } else if (
+                (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) ||
+                (playerIndex == 1 && shouldHideSelectionsOf(room, 0))
+            ) {
+                // 团体赛对方达到隐藏阈值后，不再可以看到对方的选卡
                 if (playerIndex == 0) {
                     if (status == RIGHT_SELECT) st = NONE
                     else if (status == BOTH_SELECT) st = LEFT_SELECT
@@ -413,18 +416,21 @@ object RoomTypeNormal : RoomType {
         // 如果是对称的可见情况，隐藏选卡
         if (st.isSelectStatus()) {
             if ((room.roomConfig.reservedType ?: 0) == 0) {
-                // 个人赛对方收了五张卡之后，不再可以看到对方的选卡
-                if (playerIndex == 0 && room.spellStatus!!.count { it == RIGHT_GET } >= 5) {
+                // 个人赛对方达到隐藏阈值后，不再可以看到对方的选卡
+                if (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) {
                     if (status == RIGHT_SELECT)
                         st = decideStatus(room, spellIndex, false)
                     else if (status == BOTH_SELECT) st = LEFT_SELECT
-                } else if (playerIndex == 1 && room.spellStatus!!.count { it == LEFT_GET } >= 5) {
+                } else if (playerIndex == 1 && shouldHideSelectionsOf(room, 0)) {
                     if (status == LEFT_SELECT)
                         st = decideStatus(room, spellIndex, true)
                     else if (status == BOTH_SELECT) st = RIGHT_SELECT
                 }
-            } else if (room.spellStatus!!.count { it == LEFT_GET || it == RIGHT_GET } >= 5) {
-                // 团体赛双方合计收了五张卡之后，不再可以看到对方的选卡
+            } else if (
+                (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) ||
+                (playerIndex == 1 && shouldHideSelectionsOf(room, 0))
+            ) {
+                // 团体赛对方达到隐藏阈值后，不再可以看到对方的选卡
                 if (playerIndex == 0) {
                     if (status == RIGHT_SELECT)
                         st = decideStatus(room, spellIndex, false)
@@ -457,6 +463,27 @@ object RoomTypeNormal : RoomType {
             return spellStatusBackup[spellIndex]
         }
         return NONE
+    }
+
+    private fun defaultHiddenSelectThreshold(boardSize: Int): Int {
+        return when (boardSize) {
+            4 -> 3
+            6 -> 7
+            else -> 5
+        }
+    }
+
+    private fun hiddenSelectThreshold(room: Room, playerIndex: Int): Int {
+        return when (playerIndex) {
+            0 -> room.roomConfig.hiddenSelectThresholdA
+            1 -> room.roomConfig.hiddenSelectThresholdB
+            else -> null
+        } ?: defaultHiddenSelectThreshold(room.boardSpec.size)
+    }
+
+    private fun shouldHideSelectionsOf(room: Room, playerIndex: Int): Boolean {
+        val getStatus = if (playerIndex == 0) LEFT_GET else RIGHT_GET
+        return room.spellStatus!!.count { it == getStatus } >= hiddenSelectThreshold(room, playerIndex)
     }
 
     override fun pushSpells(room: Room, spellIndex: Int, causer: String) {

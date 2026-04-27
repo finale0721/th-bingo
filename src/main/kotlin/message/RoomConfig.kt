@@ -86,6 +86,10 @@ class RoomConfig(
     /** 6x6额外连线数量 */
     @SerialName("extra_line_count")
     val extraLineCount: Int = 0,
+    @SerialName("hidden_select_threshold_a")
+    val hiddenSelectThresholdA: Int? = null,
+    @SerialName("hidden_select_threshold_b")
+    val hiddenSelectThresholdB: Int? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -120,6 +124,10 @@ class RoomConfig(
         portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
         (extraLineCount == 0 || (boardSize == 6 && type == 1)) || throw HandlerException("额外连线仅支持6x6标准赛")
         extraLineCount in 0..3 || throw HandlerException("额外连线数量应为0~3")
+        hiddenSelectThresholdA == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
+            throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
+        hiddenSelectThresholdB == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
+            throw HandlerException("右侧隐藏阈值应在1~${boardSize * boardSize}之间")
     }
 
     operator fun plus(config: RoomConfigNullable): RoomConfig {
@@ -152,7 +160,9 @@ class RoomConfig(
             cdModifierA = config.cdModifierA ?: cdModifierA,
             cdModifierB = config.cdModifierB ?: cdModifierB,
             boardSize = config.boardSize ?: boardSize,
-            extraLineCount = config.extraLineCount ?: extraLineCount
+            extraLineCount = config.extraLineCount ?: extraLineCount,
+            hiddenSelectThresholdA = config.hiddenSelectThresholdA ?: hiddenSelectThresholdA,
+            hiddenSelectThresholdB = config.hiddenSelectThresholdB ?: hiddenSelectThresholdB
         )
     }
 }
@@ -240,6 +250,10 @@ class RoomConfigNullable(
     /** 6x6额外连线数量 */
     @SerialName("extra_line_count")
     val extraLineCount: Int? = null,
+    @SerialName("hidden_select_threshold_a")
+    val hiddenSelectThresholdA: Int? = null,
+    @SerialName("hidden_select_threshold_b")
+    val hiddenSelectThresholdB: Int? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -269,6 +283,10 @@ class RoomConfigNullable(
         customLevelCount == null || customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
         boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
         extraLineCount == null || extraLineCount in 0..3 || throw HandlerException("额外连线数量应为0~3")
+        hiddenSelectThresholdA == null || boardSize == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
+            throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
+        hiddenSelectThresholdB == null || boardSize == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
+            throw HandlerException("右侧隐藏阈值应在1~${boardSize * boardSize}之间")
         customLevelCount == null || boardSize == null || customLevelCount.all { it in 0..(boardSize * boardSize) } ||
             throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
         portalCount == null || boardSize == null || portalCount in 1..(boardSize * boardSize) ||
