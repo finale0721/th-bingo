@@ -16,14 +16,14 @@ class NormalData {
 
     /** A盘面的传送门下标 */
     @SerialName("is_portal_a")
-    var isPortalA = Array(25) { 0 }
+    var isPortalA = emptyArray<Int>()
 
     @SerialName("is_portal_b")
-    var isPortalB = Array(25) { 0 }
+    var isPortalB = emptyArray<Int>()
 
     // 0x1: Left在A面收取 0x2: Left, B; Right = Left << 4
     @SerialName("get_on_which_board")
-    var getOnWhichBoard = Array(25) { 0 }
+    var getOnWhichBoard = emptyArray<Int>()
 
     /** 6x6 extra winning lines */
     @SerialName("extra_lines")

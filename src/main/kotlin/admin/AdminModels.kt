@@ -57,6 +57,8 @@ data class AdminGameRecordSummary(
     val isCustomGame: Boolean,
     @SerialName("has_game_log")
     val hasGameLog: Boolean,
+    @SerialName("board_size")
+    val boardSize: Int = 5,
 )
 
 @Serializable
@@ -92,6 +94,8 @@ data class AdminGameRecord(
     val hasGameLog: Boolean,
     @SerialName("game_log")
     val gameLog: GameLog?,
+    @SerialName("board_size")
+    val boardSize: Int = 5,
 )
 
 @Serializable

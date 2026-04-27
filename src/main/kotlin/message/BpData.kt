@@ -23,11 +23,11 @@ class BpData(
 
     /** 左边玩家符卡失败次数 */
     @SerialName("spell_failed_count_a")
-    var spellFailedCountA = IntArray(25)
+    var spellFailedCountA = intArrayOf()
 
     /** 右边玩家符卡失败次数 */
     @SerialName("spell_failed_count_b")
-    var spellFailedCountB = IntArray(25)
+    var spellFailedCountB = intArrayOf()
 
     companion object {
         fun create(board: BoardSpec, whoseTurn: Int, banPick: Int): BpData {

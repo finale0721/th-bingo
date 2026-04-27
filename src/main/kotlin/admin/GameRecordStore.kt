@@ -260,6 +260,7 @@ object GameRecordStore {
         val score = gameLog?.score ?: listOf(0, 0)
         val gameType = gameLog?.roomConfig?.type ?: room.roomConfig.type
         val isCustomGame = gameLog?.isCustomGame ?: room.isCustomGame
+        val boardSize = gameLog?.roomConfig?.boardSize ?: room.roomConfig.boardSize
 
         return AdminGameRecord(
             id = createRecordId(storageMonth),
@@ -278,6 +279,7 @@ object GameRecordStore {
             startedAt = startedAt,
             isCustomGame = isCustomGame,
             hasGameLog = gameLog != null,
+            boardSize = boardSize,
             gameLog = gameLog,
         )
     }
@@ -532,6 +534,7 @@ object GameRecordStore {
             startedAt = startedAt,
             isCustomGame = isCustomGame,
             hasGameLog = hasGameLog,
+            boardSize = boardSize,
         )
     }
 
