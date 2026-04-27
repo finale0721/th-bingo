@@ -123,7 +123,7 @@ class RoomConfig(
         (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
         portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
         (extraLineCount == 0 || (boardSize == 6 && type == 1)) || throw HandlerException("额外连线仅支持6x6标准赛")
-        extraLineCount in 0..3 || throw HandlerException("额外连线数量应为0~3")
+        extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")
         hiddenSelectThresholdA == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
             throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
         hiddenSelectThresholdB == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
@@ -282,7 +282,7 @@ class RoomConfigNullable(
             throw HandlerException("AI作品修正数值范围应为-2~2")
         customLevelCount == null || customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
         boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
-        extraLineCount == null || extraLineCount in 0..3 || throw HandlerException("额外连线数量应为0~3")
+        extraLineCount == null || extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")
         hiddenSelectThresholdA == null || boardSize == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
             throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
         hiddenSelectThresholdB == null || boardSize == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
