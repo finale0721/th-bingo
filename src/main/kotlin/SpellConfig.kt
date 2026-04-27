@@ -137,11 +137,15 @@ object SpellConfig {
         maxStar: Int
     ): HashMap<Int, HashMap<String, Float>> {
         val weightMaps = HashMap<Int, HashMap<String, Float>>()
+        val availableGames = map.values
+            .flatMap { isExMap -> isExMap.values }
+            .flatMap { gameMap -> gameMap.keys }
+            .toSet()
         for (i in 1..maxStar) {
-            weightMaps[i] = HashMap(weightDict).apply {
-                keys.retainAll { game ->
-                    map.values.any { isExMap ->
-                        isExMap.values.any { gameMap -> game in gameMap.keys }
+            weightMaps[i] = defaultWeightMap(availableGames).apply {
+                weightDict.forEach { (game, weight) ->
+                    if (game in availableGames) {
+                        this[game] = weight
                     }
                 }
             }
