@@ -6,7 +6,6 @@ import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.HandlerException
 import org.tfcc.bingo.message.NormalData
 import java.util.concurrent.ThreadLocalRandom
-import kotlin.math.roundToInt
 import kotlin.random.asKotlinRandom
 
 object RoomTypeNormal : RoomType {
@@ -53,21 +52,17 @@ object RoomTypeNormal : RoomType {
         val allIndices = (0 until board.area).toMutableList()
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         allIndices.shuffle(rand)
-        val scale = board.area / 25.0
 
         if (room.roomConfig.blindSetting == 2) {
             // leftOnly, rightOnly, bothSee — 5x5 base counts, scaled by board area
-            val reveal = arrayOf(
-                intArrayOf(0, 0, 0),
-                intArrayOf(3, 3, 1),
-                intArrayOf(5, 5, 2),
-                intArrayOf(6, 6, 4),
-                intArrayOf(8, 8, 4)
+            val reveal = BlindRevealProfile.normal(
+                room.roomConfig.blindSetting,
+                board.size,
+                room.roomConfig.blindRevealLevel
             )
-            val level = room.roomConfig.blindRevealLevel
-            val leftCount = (reveal[level][0] * scale).roundToInt().coerceIn(0, board.area)
-            val rightCount = (reveal[level][1] * scale).roundToInt().coerceIn(0, board.area)
-            val bothCount = (reveal[level][2] * scale).roundToInt().coerceIn(0, board.area)
+            val leftCount = reveal.first.coerceIn(0, board.area)
+            val rightCount = reveal.second.coerceIn(0, board.area)
+            val bothCount = reveal.both.coerceIn(0, board.area)
             var idx = 0
             for (i in 0 until leftCount) {
                 room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY
@@ -80,17 +75,14 @@ object RoomTypeNormal : RoomType {
             }
         } else if (room.roomConfig.blindSetting == 3) {
             // gameOnly, stageOnly, bothReveal — 5x5 base counts, scaled by board area
-            val reveal = arrayOf(
-                intArrayOf(12, 0, 0),
-                intArrayOf(24, 0, 0),
-                intArrayOf(12, 12, 0),
-                intArrayOf(0, 24, 0),
-                intArrayOf(0, 18, 6)
+            val reveal = BlindRevealProfile.normal(
+                room.roomConfig.blindSetting,
+                board.size,
+                room.roomConfig.blindRevealLevel
             )
-            val level = room.roomConfig.blindRevealLevel
-            val gameCount = (reveal[level][0] * scale).roundToInt().coerceIn(0, board.area)
-            val stageCount = (reveal[level][1] * scale).roundToInt().coerceIn(0, board.area)
-            val bothCount = (reveal[level][2] * scale).roundToInt().coerceIn(0, board.area)
+            val gameCount = reveal.first.coerceIn(0, board.area)
+            val stageCount = reveal.second.coerceIn(0, board.area)
+            val bothCount = reveal.both.coerceIn(0, board.area)
             var idx = 0
             for (i in 0 until gameCount) {
                 room.spellStatus!![allIndices[idx++]] = ONLY_REVEAL_GAME
@@ -169,7 +161,7 @@ object RoomTypeNormal : RoomType {
                 1 -> Difficulty.E
                 2 -> Difficulty.N
                 3 -> Difficulty.L
-                else -> Difficulty.random()
+                else -> Difficulty.L
             }
             else -> null
         }
@@ -188,7 +180,7 @@ object RoomTypeNormal : RoomType {
                 1 -> Difficulty.E
                 2 -> Difficulty.N
                 3 -> Difficulty.L
-                else -> Difficulty.random()
+                else -> Difficulty.L
             }
             else -> null
         }
