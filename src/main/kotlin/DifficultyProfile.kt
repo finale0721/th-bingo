@@ -69,9 +69,9 @@ data class DifficultyProfile(
         val ODP = DifficultyProfile(
             "ODP",
             mapOf(
-                4 to intArrayOf(0, 0, 4, 0, 0, 5, 3),  // 0 0 4 8 4
-                5 to intArrayOf(0, 0, 6, 0, 0, 9, 5),  // 0 0 6 13 6
-                6 to intArrayOf(0, 0, 10, 0, 0, 11, 9),  // 0 0 10 16 10
+                4 to intArrayOf(0, 0, 4, 0, 0, 5, 3), // 0 0 4 8 4
+                5 to intArrayOf(0, 0, 6, 0, 0, 9, 5), // 0 0 6 13 6
+                6 to intArrayOf(0, 0, 10, 0, 0, 11, 9), // 0 0 10 16 10
             )
         )
 

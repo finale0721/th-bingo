@@ -436,7 +436,7 @@ object SpellFactory {
                 1 -> Difficulty.E
                 2 -> Difficulty.N
                 3 -> Difficulty.L
-                else -> Difficulty.random()
+                else -> Difficulty.L
             }, boardSize
         )
         DifficultyMode.OD -> buildODStarArray(difficulty ?: 4, boardSize)
@@ -451,7 +451,7 @@ object SpellFactory {
                 1 -> Difficulty.E
                 2 -> Difficulty.N
                 3 -> Difficulty.L
-                else -> Difficulty.random()
+                else -> Difficulty.L
             }
         )
     }

@@ -42,7 +42,7 @@ object RoomTypeLink : RoomType {
             1 -> Difficulty.E
             2 -> Difficulty.N
             3 -> Difficulty.L
-            else -> Difficulty.random()
+            else -> Difficulty.L
         }
         return SpellFactory.drawSpells(
             DifficultyMode.LINK, spellCardVersion, games, ranks,

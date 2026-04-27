@@ -21,7 +21,7 @@ class RoomConfig(
     /** 需要胜利的局数，例如2表示bo3，空表示1 */
     @SerialName("need_win")
     val needWin: Int?,
-    /** 难度（影响不同星级的卡的分布），1对应E，2对应N，3对应L，其它对应随机 */
+    /** 难度（影响不同星级的卡的分布），1对应E，2对应N，3对应L，4对应OD，5对应ODP，6对应自定义 */
     val difficulty: Int?,
     /** 选卡cd，收卡后要多少秒才能选下一张卡，空表示0 */
     @SerialName("cd_time")
@@ -96,6 +96,7 @@ class RoomConfig(
         games.size < 100 || throw HandlerException("选择的作品数太多")
         ranks.size <= 6 || throw HandlerException("选择的难度数太多")
         needWin == null || needWin in 1..99 || throw HandlerException("需要胜场的数值不正确")
+        difficulty == null || difficulty in 1..6 || throw HandlerException("难度设置不正确")
         cdTime == null || cdTime in 0..1440 || throw HandlerException("选卡cd的数值不正确")
         cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("左侧选手CD修正值范围应为-1440~2880")
         cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("右侧选手CD修正值范围应为-1440~2880")
@@ -174,7 +175,7 @@ class RoomConfigNullable(
     /** 需要胜利的局数，例如2表示bo3，空表示1 */
     @SerialName("need_win")
     val needWin: Int? = null,
-    /** 难度（影响不同星级的卡的分布），1对应E，2对应N，3对应L，其它对应随机 */
+    /** 难度（影响不同星级的卡的分布），1对应E，2对应N，3对应L，4对应OD，5对应ODP，6对应自定义 */
     val difficulty: Int? = null,
     /** 选卡cd，收卡后要多少秒才能选下一张卡，空表示0 */
     @SerialName("cd_time")
@@ -249,6 +250,7 @@ class RoomConfigNullable(
         games == null || games.size < 100 || throw HandlerException("选择的作品数太多")
         ranks == null || ranks.size <= 6 || throw HandlerException("选择的难度数太多")
         needWin == null || needWin in 1..99 || throw HandlerException("需要胜场的数值不正确")
+        difficulty == null || difficulty in 1..6 || throw HandlerException("难度设置不正确")
         cdTime == null || cdTime in 0..1440 || throw HandlerException("选卡cd的数值不正确")
         cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("左侧选手CD修正值范围应为-1440~2880")
         cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("右侧选手CD修正值范围应为-1440~2880")
