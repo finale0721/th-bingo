@@ -9,6 +9,7 @@ import org.tfcc.bingo.decode
 import org.tfcc.bingo.encode
 import org.tfcc.bingo.push
 import org.tfcc.bingo.toSpellStatus
+import kotlin.random.Random
 
 object StartCustomGameHandler : RequestHandler {
     override fun handle(ctx: ChannelHandlerContext, player: Player, data: JsonElement?): JsonElement? {
@@ -41,7 +42,17 @@ object StartCustomGameHandler : RequestHandler {
 
         // 自定义处理环节
         room.isCustomGame = true
+        val generatedExtraLines = if (room.boardSpec.size == 6 && room.roomConfig.extraLineCount > 0) {
+            room.boardSpec.generateExtraLines(
+                room.roomConfig.extraLineCount,
+                Random.Default
+            )
+        } else {
+            emptyList()
+        }
+
         room.normalData = NormalData.create(room.boardSpec)
+        room.normalData!!.extraLines = generatedExtraLines
 
         val spellStatusInts = msg.spellStatus.toIntArray()
         room.spellStatus = spellStatusInts.map { it.toSpellStatus() }.toTypedArray()
@@ -54,6 +65,7 @@ object StartCustomGameHandler : RequestHandler {
             normalData.isPortalA = msg.isPortalA.toTypedArray()
             normalData.isPortalB = msg.isPortalB.toTypedArray()
             normalData.getOnWhichBoard = Array(room.boardArea) { 0 }
+            normalData.extraLines = generatedExtraLines
             room.normalData = normalData
         }
 
