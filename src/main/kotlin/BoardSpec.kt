@@ -41,38 +41,51 @@ class BoardSpec(val size: Int) {
 
     /**
      * Generate random extra winning lines for 6x6 boards.
-     * Each line is a 4-connected path of exactly [size] cells.
+     * Each line is an 8-connected path of exactly [size] cells.
      * Lines must not overlap each other, and each line must not share more than 3 cells
-     * with any base winning line (row/col/diag).
+     * with any base winning line (row/col/diag) when possible.
      */
     fun generateExtraLines(count: Int, rand: kotlin.random.Random): List<List<Int>> {
         if (count <= 0 || size != 6) return emptyList()
         val baseLines = rows() + cols() + diagonals()
         val result = mutableListOf<List<Int>>()
         val usedCells = mutableSetOf<Int>()
-        val maxRetries = 100
+        val maxCandidates = 500
 
         for (lineNum in 0 until count) {
             var best: List<Int>? = null
-            for (retry in 0 until maxRetries) {
+            var bestOverlap = Int.MAX_VALUE
+            for (retry in 0 until maxCandidates) {
                 val path = generateRandomPath(rand, usedCells) ?: continue
-                val overlapWithBase = baseLines.count { bl -> path.count { it in bl } > 3 }
-                if (overlapWithBase > 0) continue
-                best = path
-                break
+                val overlapWithBase = path.maxOverlapWith(baseLines)
+                if (overlapWithBase < bestOverlap) {
+                    best = path
+                    bestOverlap = overlapWithBase
+                }
+                if (overlapWithBase <= 3) {
+                    best = path
+                    break
+                }
             }
             if (best != null) {
                 result.add(best)
                 usedCells.addAll(best)
             } else {
-                throw IllegalStateException("Failed to generate extra line ${lineNum + 1}/$count after $maxRetries retries")
+                throw IllegalStateException(
+                    "Failed to generate extra line ${lineNum + 1}/$count after $maxCandidates candidates"
+                )
             }
         }
         return result
     }
 
+    private fun List<Int>.maxOverlapWith(lines: List<List<Int>>): Int {
+        val cells = toSet()
+        return lines.maxOfOrNull { line -> line.count { it in cells } } ?: 0
+    }
+
     /**
-     * Generate a random 4-connected path of length [size] that does not use any cell in [exclude].
+     * Generate a random 8-connected path of length [size] that does not use any cell in [exclude].
      * Uses a random walk with backtracking.
      */
     private fun generateRandomPath(rand: kotlin.random.Random, exclude: Set<Int>): List<Int>? {
@@ -85,7 +98,7 @@ class BoardSpec(val size: Int) {
         fun walk(): Boolean {
             if (path.size == size) return true
             val current = path.last()
-            val neighbors = neighbors4(current)
+            val neighbors = neighbors8(current)
                 .filter { it !in visited && it !in exclude }
                 .shuffled(rand)
             for (n in neighbors) {
