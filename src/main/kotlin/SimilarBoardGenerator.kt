@@ -6,15 +6,14 @@ import kotlin.random.Random
 import kotlin.random.asKotlinRandom
 
 object SimilarBoardGenerator {
-    private val V_MAP = intArrayOf(0, 1, 1, 2, 4, 5, 4, 5) // V(x) = V_MAP[x]
+    private val V_MAP = intArrayOf(0, 1, 1, 2, 3, 4, 3, 4) // V(x) = V_MAP[x]
 
-    // Tier index ranges (0-based) for diffLevel 1..5
+    // Tier index ranges (0-based) for diffLevel 1..4. diffLevel 5 always picks the largest diff candidate.
     private val TIER_RANGES = arrayOf(
-        intArrayOf(4, 9), // Level 1: 5th~10th
-        intArrayOf(49, 99), // Level 2: 50th~100th
-        intArrayOf(199, 299), // Level 3: 200th~300th
-        intArrayOf(399, 599), // Level 4: 400th~600th
-        intArrayOf(799, 999), // Level 5: 800th~1000th
+        intArrayOf(100, 199),
+        intArrayOf(200, 399),
+        intArrayOf(400, 699),
+        intArrayOf(700, 999),
     )
 
     private const val CANDIDATE_COUNT = 1000
@@ -23,7 +22,9 @@ object SimilarBoardGenerator {
      * Generate a board (star array) with specified difference level from matrixA.
      * @param matrixA The original star array
      * @param diffLevel -1 = random (just generate two random boards independently);
-     *                   1..5 = tiered selection from 1000 sorted candidates
+     *                   0 = same difficulty distribution as matrixA;
+     *                   1..4 = tiered selection from 1000 sorted candidates;
+     *                   5 = max difference candidate
      * @param board Board geometry spec
      * @return A star array with the same star distribution as matrixA
      */
@@ -40,6 +41,10 @@ object SimilarBoardGenerator {
             return generateRandomBoard(matrixA, board, rand, preserveFixedHighLevelLayout)
         }
 
+        if (diffLevel == 0) {
+            return matrixA.copyOf()
+        }
+
         val level = diffLevel.coerceIn(1, 5)
 
         // Generate CANDIDATE_COUNT random boards, compute difference, sort ascending
@@ -50,6 +55,10 @@ object SimilarBoardGenerator {
             candidates.add(Pair(candidate, diff))
         }
         candidates.sortBy { it.second }
+
+        if (level == 5) {
+            return candidates.last().first
+        }
 
         // Pick a random index from the tier range
         val range = TIER_RANGES[level - 1]
