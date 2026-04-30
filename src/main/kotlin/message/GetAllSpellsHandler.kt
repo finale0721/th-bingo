@@ -50,7 +50,8 @@ object GetAllSpellsHandler : RequestHandler {
             bpData = room.bpData,
             linkData = room.linkData,
             normalData = room.normalData,
-            spells2 = room.spells2
+            spells2 = room.spells2,
+            roomConfig = room.roomConfig
         ).encode()
     }
 }
@@ -81,4 +82,6 @@ class AllSpellsResponse(
     val normalData: NormalData?,
     /** 25张符卡 (B Side) */
     val spells2: Array<Spell>?,
+    @SerialName("room_config")
+    val roomConfig: RoomConfig,
 )

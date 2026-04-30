@@ -10,6 +10,9 @@ object UpdateRoomConfigHandler : RequestHandler {
         val m = data!!.decode<RoomConfigNullable>()
         m.rid == room.roomId || throw HandlerException("不是你所在的房间")
         room.isHost(player) || throw HandlerException("没有权限")
+        if (room.started && m.boardSize != null && m.boardSize != room.roomConfig.boardSize) {
+            throw HandlerException("board size cannot be changed after game start")
+        }
         m.validate()
         val next = room.roomConfig + m
         next.validate()
