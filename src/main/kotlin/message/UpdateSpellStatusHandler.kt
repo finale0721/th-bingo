@@ -75,6 +75,7 @@ object UpdateSpellStatusHandler : RequestHandler {
     }
 
     private fun recordGetBoard(room: Room, player: Player, spellIdx: Int) {
+        if(room.normalData == null) return
         val st = room.spellStatus!![spellIdx]
         if (st == LEFT_GET && room.normalData!!.whichBoardA == 0) {
             room.normalData!!.getOnWhichBoard[spellIdx] = 0x1
