@@ -167,7 +167,7 @@ object RoomTypeLink : RoomType {
         pushLinkData(room)
     }
 
-    fun finishSelected(room: Room, playerIndex: Int, skip: Boolean, expectedIndex: Int? = null) {
+    fun finishSelected(room: Room, playerIndex: Int, skip: Boolean, expectedIndex: Int? = null, force: Boolean = false) {
         room.phase == 2 || throw HandlerException("不在正式比赛阶段")
         val linkData = room.linkData!!
         linkData.ensureStatusSize(room.boardArea)
@@ -183,11 +183,11 @@ object RoomTypeLink : RoomType {
         val now = System.currentTimeMillis()
         if (skip) {
             val allowed = if (route.size > 10) 2 else 1
-            if (skipUsedOf(linkData, playerIndex) >= allowed) throw HandlerException("跳过次数已用完")
+            if (!force && skipUsedOf(linkData, playerIndex) >= allowed) throw HandlerException("跳过次数已用完")
             val startedAt = if (playerIndex == 0) linkData.lastGetTimeA else linkData.lastGetTimeB
             val waitMs = ((room.spells!![idx].star + 1) * 60_000L)
-            if (now - startedAt < waitMs) throw HandlerException("还不能跳过这张卡")
-            setSkipUsed(linkData, playerIndex, skipUsedOf(linkData, playerIndex) + 1)
+            if (!force && now - startedAt < waitMs) throw HandlerException("还不能跳过这张卡")
+            setSkipUsed(linkData, playerIndex, (skipUsedOf(linkData, playerIndex) + 1).coerceAtMost(allowed))
         } else {
         }
         if (playerIndex == 0) {
@@ -208,6 +208,39 @@ object RoomTypeLink : RoomType {
             }
         }
         updateScores(room)
+        pushLinkData(room)
+    }
+
+    fun undoFinished(room: Room, playerIndex: Int) {
+        room.phase == 2 || throw HandlerException("不在正式比赛阶段")
+        val linkData = room.linkData!!
+        linkData.ensureStatusSize(room.boardArea)
+        val step = currentStepOf(linkData, playerIndex)
+        if (step <= 0) throw HandlerException("没有可撤销的收取")
+        val route = routeOf(linkData, playerIndex)
+        val idx = route[step - 1]
+        val now = System.currentTimeMillis()
+        if (playerIndex == 0) {
+            linkData.statusA[idx] = LEFT_SELECT.value
+            linkData.currentStepA = step - 1
+            linkData.eventA = 1
+            linkData.endMsA = 0
+            linkData.lastGetTimeA = now - room.actualCdTime[0]
+        } else {
+            linkData.statusB[idx] = RIGHT_SELECT.value
+            linkData.currentStepB = step - 1
+            linkData.eventB = 1
+            linkData.endMsB = 0
+            linkData.lastGetTimeB = now - room.actualCdTime[1]
+        }
+        updateScores(room)
+        pushLinkData(room)
+    }
+
+    fun setSkipUsedPublic(room: Room, playerIndex: Int, value: Int) {
+        val route = routeOf(room.linkData!!, playerIndex)
+        val allowed = if (route.size > 10) 2 else 1
+        setSkipUsed(room.linkData!!, playerIndex, value.coerceIn(0, allowed))
         pushLinkData(room)
     }
 
