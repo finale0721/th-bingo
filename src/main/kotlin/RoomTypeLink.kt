@@ -12,6 +12,15 @@ object RoomTypeLink : RoomType {
 
     override val canPause = false
 
+    override fun rollSpellCard(room: Room, stars: IntArray?) {
+        val linkStars = SpellFactory.buildLinkStarArray(
+            linkDifficulty(room.roomConfig.difficulty),
+            room.roomConfig.boardSize,
+            setOf(room.roomConfig.linkStartA, room.roomConfig.linkStartB)
+        )
+        super.rollSpellCard(room, linkStars)
+    }
+
     override fun onStart(room: Room) {
         val baseCdTime = (room.roomConfig.cdTime ?: 0).toLong() * 1000L
         room.actualCdTime[0] = baseCdTime.coerceAtLeast(1000L)
@@ -48,17 +57,19 @@ object RoomTypeLink : RoomType {
         boardSize: Int,
         customSettings: IntArray?
     ): Array<Spell> {
-        val diffObj = when (difficulty) {
-            1 -> Difficulty.E
-            2 -> Difficulty.N
-            3 -> Difficulty.L
-            else -> Difficulty.L
-        }
+        val diffObj = linkDifficulty(difficulty)
         return SpellFactory.drawSpells(
             DifficultyMode.LINK, spellCardVersion, games, ranks,
             difficultyObj = diffObj,
             boardSize = boardSize,
         )
+    }
+
+    private fun linkDifficulty(difficulty: Int?): Difficulty = when (difficulty) {
+        1 -> Difficulty.E
+        2 -> Difficulty.N
+        3 -> Difficulty.L
+        else -> Difficulty.L
     }
 
     override fun handleSelectSpell(room: Room, playerIndex: Int, spellIndex: Int) {

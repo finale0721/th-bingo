@@ -371,22 +371,39 @@ object SpellFactory {
     }
 
     /**
-     * Build a star array for LINK mode: fixed positions for corners/center/edges.
+     * Build a star array for LINK mode.
+     *
+     * The 5x5 layout follows the legacy Link rule:
+     * starts are 1-star, the four inner diagonal cells are 4-star, and the center is 5-star.
      */
     @Throws(HandlerException::class)
-    private fun buildLinkStarArray(difficulty: Difficulty, boardSize: Int): IntArray {
+    fun buildLinkStarArray(difficulty: Difficulty, boardSize: Int, starts: Set<Int>? = null): IntArray {
         val lvCount = difficulty.value
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val area = board.area
-        val starts = setOf(board.index(0, 0), board.index(0, board.size - 1))
-        val highPositions = highLevelPositions(board, rand).toMutableList()
-        val center = board.centerIndices()
-        val fivePos = center.firstOrNull { it in highPositions } ?: highPositions.first()
+        val startSet = starts
+            ?.filter { board.isValidIndex(it) }
+            ?.toSet()
+            ?: setOf(board.index(0, 0), board.index(0, board.size - 1))
+        val highCount = board.size
+
         val fixed = mutableMapOf<Int, Int>()
-        starts.forEach { fixed[it] = 1 }
+        startSet.forEach { fixed[it] = 1 }
+
+        val highPriority = linkHighPriority(board, rand).filter { it !in startSet }
+        val fivePos = highPriority.firstOrNull() ?: (0 until area).first { it !in startSet }
         fixed[fivePos] = 5
-        highPositions.filter { it != fivePos && it !in starts }.forEach { fixed[it] = 4 }
+        val centerHighLimit = if (board.size % 2 == 0) 3 else Int.MAX_VALUE
+        val centerSet = board.centerIndices().toSet()
+        var centerHighCount = if (fivePos in centerSet) 1 else 0
+        for (position in highPriority) {
+            if (fixed.size - startSet.size >= highCount) break
+            if (position == fivePos || position in fixed) continue
+            if (position in centerSet && centerHighCount >= centerHighLimit) continue
+            fixed[position] = 4
+            if (position in centerSet) centerHighCount++
+        }
 
         val remainingCount = area - fixed.size
         val lowStars = (IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 })
@@ -397,6 +414,71 @@ object SpellFactory {
         return IntArray(area) { i ->
             fixed[i] ?: lowStars[j++]
         }
+    }
+
+    private fun linkHighPriority(board: BoardSpec, rand: Random): List<Int> {
+        if (board.size == 5) {
+            val legacy = listOf(12, 6, 8, 16, 18)
+            val rest = (0 until board.area)
+                .filter { it !in legacy }
+                .sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+            return legacy + rest
+        }
+        if (board.size % 2 == 0) return linkEvenHighPriority(board, rand)
+        return (0 until board.area)
+            .sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+    }
+
+    private fun linkEvenHighPriority(board: BoardSpec, rand: Random): List<Int> {
+        val center = board.centerIndices().shuffled(rand)
+        val centerPick = center.take(3)
+        val restCenter = center.drop(3)
+        val innerRing = board.innerIndices()
+            .filter { it !in center }
+        val balancedRing = if (board.size == 6) {
+            balancedLinkRing(board, innerRing, rand)
+        } else {
+            innerRing.sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+        }
+        val outer = (0 until board.area)
+            .filter { it !in center && it !in innerRing }
+            .sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+        return centerPick + balancedRing + restCenter + outer
+    }
+
+    private fun balancedLinkRing(board: BoardSpec, indices: List<Int>, rand: Random): List<Int> {
+        val midLow = board.size / 2 - 1
+        val midHigh = board.size / 2
+        fun sector(index: Int): Int {
+            val row = board.row(index)
+            val col = board.col(index)
+            return when {
+                row < midLow -> 0
+                col > midHigh -> 1
+                row > midHigh -> 2
+                else -> 3
+            }
+        }
+        val groups = indices.groupBy(::sector).mapValues { (_, value) ->
+            value.sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() }).toMutableList()
+        }
+        val result = mutableListOf<Int>()
+        var sector = rand.nextInt(4)
+        while (groups.values.any { it.isNotEmpty() }) {
+            repeat(4) {
+                val group = groups[sector]
+                if (!group.isNullOrEmpty()) result.add(group.removeAt(0))
+                sector = (sector + 1) % 4
+            }
+        }
+        return result
+    }
+
+    private fun centerDistance2(board: BoardSpec, index: Int): Int {
+        val scaledCenter = board.size - 1
+        val dr = board.row(index) * 2 - scaledCenter
+        val dc = board.col(index) * 2 - scaledCenter
+        return dr * dr + dc * dc
     }
 
     // ---- EX position helpers ----
