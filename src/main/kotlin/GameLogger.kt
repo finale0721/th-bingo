@@ -1,6 +1,7 @@
 package org.tfcc.bingo
 
 import org.tfcc.bingo.message.GameLog
+import org.tfcc.bingo.message.LinkData
 import org.tfcc.bingo.message.NormalData
 import org.tfcc.bingo.message.PlayerAction
 import org.tfcc.bingo.message.RoomConfig
@@ -10,6 +11,7 @@ class GameLogger {
     private var spells: Array<Spell>? = null
     private var spells2: Array<Spell>? = null
     private var normalData: NormalData? = null
+    private var linkData: LinkData? = null
     private val actions = mutableListOf<PlayerAction>()
     private var gameStartTimestamp: Long = 0
     private var players = arrayOf<String>("", "")
@@ -19,6 +21,11 @@ class GameLogger {
     private var isCustomGame = false
 
     private fun updateScore(room: Room) {
+        if (room.type is RoomTypeLink) {
+            score[0] = room.linkData?.scoreA?.toInt() ?: room.score[0]
+            score[1] = room.linkData?.scoreB?.toInt() ?: room.score[1]
+            return
+        }
         var left = 0
         var right = 0
         room.spellStatus!!.forEach {
@@ -30,6 +37,12 @@ class GameLogger {
     }
 
     private fun getCurrentScore(room: Room): IntArray {
+        if (room.type is RoomTypeLink) {
+            return intArrayOf(
+                room.linkData?.scoreA?.toInt() ?: room.score[0],
+                room.linkData?.scoreB?.toInt() ?: room.score[1],
+            )
+        }
         var left = 0
         var right = 0
         room.spellStatus!!.forEach {
@@ -54,6 +67,10 @@ class GameLogger {
         }
     }
 
+    private fun updateLinkData(room: Room) {
+        this.linkData = room.linkData?.copy()
+    }
+
     fun startLog(room: Room) {
         clear()
         this.room = room
@@ -68,9 +85,12 @@ class GameLogger {
             initStatus!![index] = status.value
         }
         this.isCustomGame = room.isCustomGame
+        updateNormalData(room)
+        updateLinkData(room)
+        updateScore(room)
     }
 
-    fun logAction(player: Player, actionType: String, spellIndex: Int, spell: Spell) {
+    fun logAction(player: Player, actionType: String, spellIndex: Int, spell: Spell, linkData: LinkData? = null) {
         if (gameStartTimestamp == 0L) return
 
         val action = PlayerAction(
@@ -80,10 +100,38 @@ class GameLogger {
             spellName = spell.name,
             timestamp = System.currentTimeMillis() - gameStartTimestamp,
             scoreNow = getCurrentScore(room!!).toList(),
+            linkData = linkData?.copy() ?: room?.linkData?.copy(),
         )
         actions.add(action)
         updateScore(room!!)
         updateNormalData(room!!)
+        updateLinkData(room!!)
+    }
+
+    fun logLinkAction(
+        room: Room,
+        playerIndex: Int,
+        actionType: String,
+        spellIndex: Int = -1,
+        timestampMs: Long = System.currentTimeMillis(),
+        linkData: LinkData? = room.linkData,
+    ) {
+        if (gameStartTimestamp == 0L) return
+        val spell = spellIndex.takeIf { it >= 0 }?.let { room.spells?.getOrNull(it) }
+        val playerName = room.players.getOrNull(playerIndex)?.name ?: if (playerIndex == 0) "PlayerA" else "PlayerB"
+        val action = PlayerAction(
+            playerName = playerName,
+            actionType = actionType,
+            spellIndex = spellIndex,
+            spellName = spell?.name ?: "",
+            timestamp = (timestampMs - gameStartTimestamp).coerceAtLeast(0L),
+            scoreNow = getCurrentScore(room).toList(),
+            linkData = linkData?.copy(),
+        )
+        actions.add(action)
+        updateScore(room)
+        updateNormalData(room)
+        updateLinkData(room)
     }
 
     fun getSerializedLog(): GameLog? {
@@ -101,7 +149,8 @@ class GameLogger {
             gameStartTimestamp = this.gameStartTimestamp,
             score = this.score.toList(),
             initStatus = initStatus!!.toList(),
-            isCustomGame = this.isCustomGame
+            isCustomGame = this.isCustomGame,
+            linkData = this.linkData,
         )
     }
 
@@ -110,6 +159,7 @@ class GameLogger {
         spells = null
         spells2 = null
         normalData = null
+        linkData = null
         actions.clear()
         gameStartTimestamp = 0
         players.fill("")

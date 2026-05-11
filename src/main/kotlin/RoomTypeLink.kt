@@ -121,6 +121,7 @@ object RoomTypeLink : RoomType {
         if (!neighbors(room, last).contains(spellIndex)) throw HandlerException("不合理的选卡")
         route.add(spellIndex)
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, playerIndex, "link_route", spellIndex)
     }
 
     fun undoRoute(room: Room, playerIndex: Int) {
@@ -129,8 +130,9 @@ object RoomTypeLink : RoomType {
         val route = routeOf(linkData, playerIndex)
         if (isRouteConfirmed(linkData, playerIndex)) throw HandlerException("路线已确认")
         if (route.size <= 1) throw HandlerException("起点不能撤回")
-        route.removeAt(route.lastIndex)
+        val removed = route.removeAt(route.lastIndex)
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, playerIndex, "link_undo", removed)
     }
 
     fun confirmRoute(room: Room, playerIndex: Int, confirmed: Boolean) {
@@ -142,6 +144,12 @@ object RoomTypeLink : RoomType {
         }
         if (playerIndex == 0) linkData.routeConfirmedA = confirmed else linkData.routeConfirmedB = confirmed
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(
+            room,
+            playerIndex,
+            if (confirmed) "link_confirm_route" else "link_unconfirm_route",
+            route.lastOrNull() ?: -1,
+        )
     }
 
     fun startRun(room: Room) {
@@ -162,6 +170,8 @@ object RoomTypeLink : RoomType {
         if (linkData.linkIdxA.isNotEmpty()) linkData.statusA[linkData.linkIdxA[0]] = LEFT_SELECT.value
         if (linkData.linkIdxB.isNotEmpty()) linkData.statusB[linkData.linkIdxB[0]] = RIGHT_SELECT.value
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, 0, "link_start_run", linkData.linkIdxA.firstOrNull() ?: -1)
+        room.gameLogger?.logLinkAction(room, 1, "link_start_run", linkData.linkIdxB.firstOrNull() ?: -1)
     }
 
     fun selectNext(room: Room, playerIndex: Int) {
@@ -184,6 +194,7 @@ object RoomTypeLink : RoomType {
             linkData.statusB[idx] = RIGHT_SELECT.value
         }
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, playerIndex, "link_next_card", idx)
     }
 
     fun finishSelected(room: Room, playerIndex: Int, skip: Boolean, expectedIndex: Int? = null, force: Boolean = false) {
@@ -232,6 +243,7 @@ object RoomTypeLink : RoomType {
         }
         updateScores(room)
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, playerIndex, if (skip) "link_skip_card" else "link_finish_card", idx)
     }
 
     fun undoFinished(room: Room, playerIndex: Int) {
@@ -262,6 +274,7 @@ object RoomTypeLink : RoomType {
         }
         updateScores(room)
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, playerIndex, "link_undo_finish", idx)
     }
 
     fun setSkipUsedPublic(room: Room, playerIndex: Int, value: Int) {
@@ -269,6 +282,7 @@ object RoomTypeLink : RoomType {
         val allowed = if (route.size > 10) 2 else 1
         setSkipUsed(room.linkData!!, playerIndex, value.coerceIn(0, allowed))
         pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, playerIndex, "link_set_skip_used")
     }
 
     fun setPhase(room: Room, phase: Int) {
@@ -289,14 +303,19 @@ object RoomTypeLink : RoomType {
                 }
                 updateScores(room)
                 pushLinkData(room)
+                room.gameLogger?.logLinkAction(room, 0, "link_finish_run", linkData.linkIdxA.lastOrNull() ?: -1)
+                room.gameLogger?.logLinkAction(room, 1, "link_finish_run", linkData.linkIdxB.lastOrNull() ?: -1)
             }
             else -> throw HandlerException("Link赛不支持该阶段")
         }
     }
 
-    fun recalculateScoresAndPush(room: Room) {
+    fun recalculateScoresAndPush(room: Room, logSpeedrun: Boolean = true) {
         updateScores(room)
         pushLinkData(room)
+        if (logSpeedrun) {
+            room.gameLogger?.logLinkAction(room, 1, "link_ai_speedrun", room.linkData?.linkIdxB?.lastOrNull() ?: -1)
+        }
     }
 
     private fun updateScores(room: Room) {

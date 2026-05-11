@@ -80,4 +80,32 @@ class LinkData {
         while (statusA.size > area) statusA.removeAt(statusA.lastIndex)
         while (statusB.size > area) statusB.removeAt(statusB.lastIndex)
     }
+
+    fun copy(): LinkData {
+        val cloned = LinkData()
+        cloned.linkIdxA.addAll(linkIdxA)
+        cloned.linkIdxB.addAll(linkIdxB)
+        cloned.startMsA = startMsA
+        cloned.endMsA = endMsA
+        cloned.eventA = eventA
+        cloned.startMsB = startMsB
+        cloned.endMsB = endMsB
+        cloned.eventB = eventB
+        cloned.routeConfirmedA = routeConfirmedA
+        cloned.routeConfirmedB = routeConfirmedB
+        cloned.currentStepA = currentStepA
+        cloned.currentStepB = currentStepB
+        cloned.statusA.addAll(statusA)
+        cloned.statusB.addAll(statusB)
+        cloned.lastGetTimeA = lastGetTimeA
+        cloned.lastGetTimeB = lastGetTimeB
+        cloned.skipUsedA = skipUsedA
+        cloned.skipUsedB = skipUsedB
+        cloned.skippedIdxA.addAll(skippedIdxA)
+        cloned.skippedIdxB.addAll(skippedIdxB)
+        cloned.scoreA = scoreA
+        cloned.scoreB = scoreB
+        cloned.disabledIdx.addAll(disabledIdx)
+        return cloned
+    }
 }

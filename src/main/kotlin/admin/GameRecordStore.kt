@@ -43,6 +43,18 @@ object GameRecordStore {
     }
 
     internal fun hasScorableProgress(room: Room): Boolean {
+        room.linkData?.let { linkData ->
+            if (linkData.currentStepA > 0 || linkData.currentStepB > 0) {
+                return true
+            }
+            if (linkData.scoreA != 0.0 || linkData.scoreB != 0.0) {
+                return true
+            }
+            if (linkData.linkIdxA.size > 1 || linkData.linkIdxB.size > 1) {
+                return true
+            }
+        }
+
         room.spellStatus?.let { spellStatus ->
             return spellStatus.any { it == SpellStatus.LEFT_GET || it == SpellStatus.RIGHT_GET }
         }

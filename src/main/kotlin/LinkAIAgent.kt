@@ -104,23 +104,24 @@ class LinkAIAgent(private val room: Room) {
         val linkData = room.linkData ?: return
         val route = linkData.linkIdxB
         var virtualUsedMs = activeUsedMs()
+        var virtualNow = linkData.startMsB.takeIf { it > 0L }?.plus(virtualUsedMs) ?: System.currentTimeMillis()
         while (linkData.currentStepB < route.size) {
             val idx = route[linkData.currentStepB]
-            if (linkData.statusB[idx] != RIGHT_SELECT.value) {
-                linkData.statusB[idx] = RIGHT_SELECT.value
-            }
+            linkData.statusB[idx] = RIGHT_SELECT.value
+            room.gameLogger?.logLinkAction(room, aiPlayerIndex, "link_next_card", idx, virtualNow)
             var elapsedOnCell = 0L
             while (true) {
                 val task = newAttempt(idx, virtualStartMs = 0L)
                 elapsedOnCell += task.durationMs
+                virtualNow += task.durationMs
                 if (task.success) {
                     virtualUsedMs += elapsedOnCell
-                    RoomTypeLink.finishSelected(room, aiPlayerIndex, skip = false, expectedIndex = idx)
+                    finishVirtualSelected(idx, skip = false, virtualNow = virtualNow)
                     break
                 }
                 if (canSkipAfterVirtualFailure(idx, elapsedOnCell)) {
                     virtualUsedMs += elapsedOnCell
-                    RoomTypeLink.finishSelected(room, aiPlayerIndex, skip = true, expectedIndex = idx, force = true)
+                    finishVirtualSelected(idx, skip = true, virtualNow = virtualNow)
                     break
                 }
             }
@@ -131,7 +132,36 @@ class LinkAIAgent(private val room: Room) {
         linkData.lastGetTimeB = linkData.endMsB
         linkData.eventB = 3
         currentTask = null
-        RoomTypeLink.recalculateScoresAndPush(room)
+        RoomTypeLink.recalculateScoresAndPush(room, logSpeedrun = false)
+    }
+
+    private fun finishVirtualSelected(idx: Int, skip: Boolean, virtualNow: Long) {
+        val linkData = room.linkData ?: return
+        val route = linkData.linkIdxB
+        val currentStep = linkData.currentStepB
+        if (currentStep >= route.size || route[currentStep] != idx) return
+        if (skip) {
+            val allowed = skipLimit()
+            linkData.skipUsedB = (linkData.skipUsedB + 1).coerceAtMost(allowed)
+            linkData.skippedIdxB.add(idx)
+        } else {
+            linkData.skippedIdxB.remove(idx)
+        }
+        linkData.statusB[idx] = SpellStatus.RIGHT_GET.value
+        linkData.currentStepB = currentStep + 1
+        linkData.lastGetTimeB = virtualNow
+        if (linkData.currentStepB >= route.size) {
+            linkData.eventB = 3
+            linkData.endMsB = virtualNow
+        }
+        RoomTypeLink.recalculateScoresAndPush(room, logSpeedrun = false)
+        room.gameLogger?.logLinkAction(
+            room,
+            aiPlayerIndex,
+            if (skip) "link_skip_card" else "link_finish_card",
+            idx,
+            virtualNow,
+        )
     }
 
     private fun newAttempt(index: Int, virtualStartMs: Long? = null): AttemptTask {

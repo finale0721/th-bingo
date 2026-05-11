@@ -43,6 +43,7 @@ data class PlayerAction(
     val spellName: String = "",
     val timestamp: Long = 0L,
     val scoreNow: List<Int> = listOf(0, 0),
+    val linkData: LinkData? = null,
 )
 
 @Serializable
@@ -57,4 +58,5 @@ data class GameLog(
     val score: List<Int> = listOf(0, 0),
     val initStatus: List<Int> = emptyList(),
     val isCustomGame: Boolean = false,
+    val linkData: LinkData? = null,
 )
