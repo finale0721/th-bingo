@@ -29,6 +29,10 @@ object RoomTypeLink : RoomType {
         linkData.linkIdxB.add(startB)
         linkData.disabledIdx.addAll(room.roomConfig.linkDisabledIdx.distinct())
         room.linkData = linkData
+        if (room.roomConfig.useAI && room.players[1]!!.name.equals(Store.ROBOT_NAME)) {
+            room.linkAiAgent = LinkAIAgent(room)
+            room.linkAiAgent?.start()
+        }
     }
 
     override fun handleNextRound(room: Room) {
@@ -274,6 +278,11 @@ object RoomTypeLink : RoomType {
             }
             else -> throw HandlerException("Link赛不支持该阶段")
         }
+    }
+
+    fun recalculateScoresAndPush(room: Room) {
+        updateScores(room)
+        pushLinkData(room)
     }
 
     private fun updateScores(room: Room) {

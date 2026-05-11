@@ -125,3 +125,13 @@ object LinkSetPhaseHandler : RequestHandler {
         return null
     }
 }
+
+object LinkAiSpeedrunHandler : RequestHandler {
+    override fun handle(ctx: ChannelHandlerContext, player: Player, data: JsonElement?): JsonElement? {
+        val room = linkRoom(player)
+        room.roomConfig.useAI || throw HandlerException("AI practice is not enabled")
+        canControlLinkPhase(player) || throw HandlerException("permission denied")
+        room.linkAiAgent?.speedrun() ?: throw HandlerException("AI is not running")
+        return null
+    }
+}

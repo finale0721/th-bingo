@@ -142,7 +142,7 @@ class RoomConfig(
         (type != 3 || blindSetting == 1) || throw HandlerException("Link赛不支持盲盒模式")
         (type != 3 || dualBoard == 0) || throw HandlerException("Link赛不支持双盘模式")
         (type != 3 || difficulty in 1..3) || throw HandlerException("Link赛仅支持低/中/高难度")
-        (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
+        // (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
         portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
         (extraLineCount == 0 || (boardSize == 6 && type == 1)) || throw HandlerException("额外连线仅支持6x6标准赛")
         extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")

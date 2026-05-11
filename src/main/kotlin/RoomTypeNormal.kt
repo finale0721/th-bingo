@@ -41,6 +41,9 @@ object RoomTypeNormal : RoomType {
             if (room.roomConfig.blindSetting > 1 || room.roomConfig.dualBoard > 0) {
                 throw HandlerException("AI陪练模式不支持盲盒或双重盘面")
             }
+            if (room.roomConfig.boardSize != 5) {
+                throw HandlerException("AI陪练模式仅支持5x5")
+            }
             room.aiAgent = AIAgent(room)
             room.aiAgent?.start()
         }
