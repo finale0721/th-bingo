@@ -34,6 +34,7 @@ object StopGameHandler : RequestHandler {
         room.bpData = null
         room.linkData = null
         room.normalData = null
+        room.phase = 0
         room.aiAgent?.stop()
         room.aiAgent = null
         room.linkAiAgent?.stop()

@@ -83,6 +83,7 @@ sealed interface RoomType {
         room.normalData = null
         room.bpData = null
         room.linkData = null
+        room.phase = 0
         room.isCustomGame = false
     }
 
