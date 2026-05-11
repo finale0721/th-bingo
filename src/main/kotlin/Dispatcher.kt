@@ -84,7 +84,6 @@ private val handlers = mapOf(
     "link_undo_finish" to LinkUndoFinishHandler,
     "link_set_skip_used" to LinkSetSkipUsedHandler,
     "link_set_phase" to LinkSetPhaseHandler,
-    "link_set_disabled" to LinkSetDisabledHandler,
     "normal_dual_board_change" to NormalDualBoardChangeHandler,
     "refresh_one_spell" to RefreshSpellHandler,
     "print_log" to PrintLogHandler,

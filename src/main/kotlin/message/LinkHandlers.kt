@@ -3,7 +3,6 @@
 import io.netty.channel.ChannelHandlerContext
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.tfcc.bingo.Player
@@ -123,16 +122,6 @@ object LinkSetPhaseHandler : RequestHandler {
         canControlLinkPhase(player) || throw HandlerException("permission denied")
         val phase = data!!.jsonObject["phase"]!!.jsonPrimitive.int
         RoomTypeLink.setPhase(room, phase)
-        return null
-    }
-}
-
-object LinkSetDisabledHandler : RequestHandler {
-    override fun handle(ctx: ChannelHandlerContext, player: Player, data: JsonElement?): JsonElement? {
-        val room = linkRoom(player)
-        canControlLinkPhase(player) || throw HandlerException("permission denied")
-        val disabled = data!!.jsonObject["disabled_idx"]!!.jsonArray.map { it.jsonPrimitive.int }
-        RoomTypeLink.setDisabled(room, disabled)
         return null
     }
 }

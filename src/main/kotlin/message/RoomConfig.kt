@@ -99,6 +99,16 @@ class RoomConfig(
     /** Link赛连接规则，4=四向，8=八向 */
     @SerialName("link_connectivity")
     val linkConnectivity: Int = 8,
+    @SerialName("link_disabled_idx")
+    val linkDisabledIdx: Array<Int> = emptyArray(),
+    @SerialName("link_start_a")
+    val linkStartA: Int = 0,
+    @SerialName("link_end_a")
+    val linkEndA: Int = boardSize * boardSize - 1,
+    @SerialName("link_start_b")
+    val linkStartB: Int = boardSize - 1,
+    @SerialName("link_end_b")
+    val linkEndB: Int = boardSize * (boardSize - 1),
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -130,6 +140,7 @@ class RoomConfig(
         boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
         (type != 2 || boardSize == 5) || throw HandlerException("BP赛仅支持5x5棋盘")
         (type != 3 || blindSetting == 1) || throw HandlerException("Link赛不支持盲盒模式")
+        (type != 3 || dualBoard == 0) || throw HandlerException("Link赛不支持双盘模式")
         (type != 3 || difficulty in 1..3) || throw HandlerException("Link赛仅支持低/中/高难度")
         (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
         portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
@@ -142,6 +153,47 @@ class RoomConfig(
         linkLevelCoefficient in 0.0..100.0 || throw HandlerException("Link赛等级系数范围应为0~100")
         linkFastestCoefficient in 0.0..100.0 || throw HandlerException("Link赛补偿系数范围应为0~100")
         linkConnectivity == 4 || linkConnectivity == 8 || throw HandlerException("Link赛连接规则只能为四向或八向")
+        val boardArea = boardSize * boardSize
+        val linkEndpoints = listOf(linkStartA, linkEndA, linkStartB, linkEndB)
+        linkEndpoints.all { it in 0 until boardArea } || throw HandlerException("Link赛起点/终点超出棋盘范围")
+        linkStartA != linkEndA || throw HandlerException("Link赛左侧起点和终点不能相同")
+        linkStartB != linkEndB || throw HandlerException("Link赛右侧起点和终点不能相同")
+        linkDisabledIdx.all { it in 0 until boardArea } || throw HandlerException("Link赛禁用格超出棋盘范围")
+        linkDisabledIdx.distinct().size == linkDisabledIdx.size || throw HandlerException("Link赛禁用格不能重复")
+        linkDisabledIdx.none { it in linkEndpoints } || throw HandlerException("Link赛禁用格不能覆盖起点或终点")
+        if (type == 3) {
+            linkReachable(linkStartA, linkEndA, linkDisabledIdx.toSet()) || throw HandlerException("Link赛左侧路线不可达")
+            linkReachable(linkStartB, linkEndB, linkDisabledIdx.toSet()) || throw HandlerException("Link赛右侧路线不可达")
+        }
+    }
+
+    private fun linkReachable(start: Int, end: Int, disabled: Set<Int>): Boolean {
+        val queue: java.util.Queue<Int> = java.util.LinkedList()
+        val seen = mutableSetOf(start)
+        queue.add(start)
+        while (queue.isNotEmpty()) {
+            val cur = queue.remove()
+            if (cur == end) return true
+            for (next in linkNeighborIndices(cur)) {
+                if (next !in disabled && seen.add(next)) queue.add(next)
+            }
+        }
+        return false
+    }
+
+    private fun linkNeighborIndices(index: Int): List<Int> {
+        val row = index / boardSize
+        val col = index % boardSize
+        val offsets = if (linkConnectivity == 4) {
+            listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)
+        } else {
+            listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1, -1 to -1, -1 to 1, 1 to -1, 1 to 1)
+        }
+        return offsets.mapNotNull { (dr, dc) ->
+            val nr = row + dr
+            val nc = col + dc
+            if (nr in 0 until boardSize && nc in 0 until boardSize) nr * boardSize + nc else null
+        }
     }
 
     operator fun plus(config: RoomConfigNullable): RoomConfig {
@@ -179,7 +231,12 @@ class RoomConfig(
             hiddenSelectThresholdB = config.hiddenSelectThresholdB ?: hiddenSelectThresholdB,
             linkLevelCoefficient = config.linkLevelCoefficient ?: linkLevelCoefficient,
             linkFastestCoefficient = config.linkFastestCoefficient ?: linkFastestCoefficient,
-            linkConnectivity = config.linkConnectivity ?: linkConnectivity
+            linkConnectivity = config.linkConnectivity ?: linkConnectivity,
+            linkDisabledIdx = config.linkDisabledIdx ?: linkDisabledIdx,
+            linkStartA = config.linkStartA ?: linkStartA,
+            linkEndA = config.linkEndA ?: linkEndA,
+            linkStartB = config.linkStartB ?: linkStartB,
+            linkEndB = config.linkEndB ?: linkEndB
         )
     }
 }
@@ -277,6 +334,16 @@ class RoomConfigNullable(
     val linkFastestCoefficient: Double? = null,
     @SerialName("link_connectivity")
     val linkConnectivity: Int? = null,
+    @SerialName("link_disabled_idx")
+    val linkDisabledIdx: Array<Int>? = null,
+    @SerialName("link_start_a")
+    val linkStartA: Int? = null,
+    @SerialName("link_end_a")
+    val linkEndA: Int? = null,
+    @SerialName("link_start_b")
+    val linkStartB: Int? = null,
+    @SerialName("link_end_b")
+    val linkEndB: Int? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -307,6 +374,7 @@ class RoomConfigNullable(
         boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
         type == null || boardSize == null || type != 2 || boardSize == 5 || throw HandlerException("BP赛仅支持5x5棋盘")
         type == null || blindSetting == null || type != 3 || blindSetting == 1 || throw HandlerException("Link赛不支持盲盒模式")
+        type == null || dualBoard == null || type != 3 || dualBoard == 0 || throw HandlerException("Link赛不支持双盘模式")
         type == null || difficulty == null || type != 3 || difficulty in 1..3 ||
             throw HandlerException("Link赛仅支持低/中/高难度")
         extraLineCount == null || extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")
@@ -324,5 +392,14 @@ class RoomConfigNullable(
             throw HandlerException("Link赛补偿系数范围应为0~100")
         linkConnectivity == null || linkConnectivity == 4 || linkConnectivity == 8 ||
             throw HandlerException("Link赛连接规则只能为四向或八向")
+        val boardArea = boardSize?.let { it * it }
+        linkDisabledIdx == null || boardArea == null || linkDisabledIdx.all { it in 0 until boardArea } ||
+            throw HandlerException("Link赛禁用格超出棋盘范围")
+        linkDisabledIdx == null || linkDisabledIdx.distinct().size == linkDisabledIdx.size ||
+            throw HandlerException("Link赛禁用格不能重复")
+        listOf(linkStartA, linkEndA, linkStartB, linkEndB)
+            .filterNotNull()
+            .all { boardArea == null || it in 0 until boardArea } ||
+            throw HandlerException("Link赛起点/终点超出棋盘范围")
     }
 }

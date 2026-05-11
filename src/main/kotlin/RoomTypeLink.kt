@@ -17,17 +17,17 @@ object RoomTypeLink : RoomType {
         room.actualCdTime[0] = baseCdTime.coerceAtLeast(1000L)
         room.actualCdTime[1] = baseCdTime.coerceAtLeast(1000L)
         val board = room.boardSpec
-        val topLeft = board.index(0, 0)
-        val topRight = board.index(0, board.size - 1)
-        room.spellStatus!![topLeft] = LEFT_SELECT
-        room.spellStatus!![topRight] = RIGHT_SELECT
+        val startA = startIndex(room, 0)
+        val startB = startIndex(room, 1)
+        room.spellStatus!![startA] = LEFT_SELECT
+        room.spellStatus!![startB] = RIGHT_SELECT
         val linkData = LinkData()
-        linkData.boardSize = board.size
         linkData.ensureStatusSize(board.area)
-        linkData.statusA[topLeft] = LEFT_SELECT.value
-        linkData.statusB[topRight] = RIGHT_SELECT.value
-        linkData.linkIdxA.add(topLeft)
-        linkData.linkIdxB.add(topRight)
+        linkData.statusA[startA] = LEFT_SELECT.value
+        linkData.statusB[startB] = RIGHT_SELECT.value
+        linkData.linkIdxA.add(startA)
+        linkData.linkIdxB.add(startB)
+        linkData.disabledIdx.addAll(room.roomConfig.linkDisabledIdx.distinct())
         room.linkData = linkData
     }
 
@@ -100,7 +100,7 @@ object RoomTypeLink : RoomType {
         val route = routeOf(linkData, playerIndex)
         if (isRouteConfirmed(linkData, playerIndex)) throw HandlerException("路线已确认")
         if (spellIndex in route) throw HandlerException("已经选了这张卡")
-        val end = endIndex(room.boardSpec, playerIndex)
+        val end = endIndex(room, playerIndex)
         val last = route.last()
         if (last == end) throw HandlerException("路线已到达终点")
         if (!neighbors(room, last).contains(spellIndex)) throw HandlerException("不合理的选卡")
@@ -123,7 +123,7 @@ object RoomTypeLink : RoomType {
         val linkData = room.linkData!!
         val route = routeOf(linkData, playerIndex)
         if (confirmed) {
-            route.last() == endIndex(room.boardSpec, playerIndex) || throw HandlerException("路线还未到达终点")
+            route.last() == endIndex(room, playerIndex) || throw HandlerException("路线还未到达终点")
         }
         if (playerIndex == 0) linkData.routeConfirmedA = confirmed else linkData.routeConfirmedB = confirmed
         pushLinkData(room)
@@ -191,7 +191,9 @@ object RoomTypeLink : RoomType {
             val waitMs = ((room.spells!![idx].star + 1) * 60_000L)
             if (!force && now - startedAt < waitMs) throw HandlerException("还不能跳过这张卡")
             setSkipUsed(linkData, playerIndex, (skipUsedOf(linkData, playerIndex) + 1).coerceAtMost(allowed))
+            skippedRouteOf(linkData, playerIndex).add(idx)
         } else {
+            skippedRouteOf(linkData, playerIndex).remove(idx)
         }
         if (playerIndex == 0) {
             linkData.statusA[idx] = LEFT_GET.value
@@ -225,6 +227,7 @@ object RoomTypeLink : RoomType {
         val now = System.currentTimeMillis()
         if (playerIndex == 0) {
             route.drop(step).forEach { linkData.statusA[it] = NONE.value }
+            route.drop(step - 1).forEach { linkData.skippedIdxA.remove(it) }
             linkData.statusA[idx] = LEFT_SELECT.value
             linkData.currentStepA = step - 1
             linkData.eventA = 1
@@ -232,6 +235,7 @@ object RoomTypeLink : RoomType {
             linkData.lastGetTimeA = now - room.actualCdTime[0]
         } else {
             route.drop(step).forEach { linkData.statusB[it] = NONE.value }
+            route.drop(step - 1).forEach { linkData.skippedIdxB.remove(it) }
             linkData.statusB[idx] = RIGHT_SELECT.value
             linkData.currentStepB = step - 1
             linkData.eventB = 1
@@ -272,27 +276,6 @@ object RoomTypeLink : RoomType {
         }
     }
 
-    fun setDisabled(room: Room, disabled: List<Int>) {
-        room.phase == 0 || room.phase == 1 || throw HandlerException("只能在准备或构筑阶段设置禁用格")
-        val board = room.boardSpec
-        val startsAndEnds = setOf(
-            board.index(0, 0),
-            board.index(0, board.size - 1),
-            board.index(board.size - 1, board.size - 1),
-            board.index(board.size - 1, 0),
-        )
-        disabled.all { board.isValidIndex(it) } || throw HandlerException("禁用格超出范围")
-        disabled.none { it in startsAndEnds } || throw HandlerException("禁用格不能覆盖起点或终点")
-        isReachable(board, board.index(0, 0), board.index(board.size - 1, board.size - 1), disabled.toSet()) ||
-            throw HandlerException("左侧路线不可达")
-        isReachable(board, board.index(0, board.size - 1), board.index(board.size - 1, 0), disabled.toSet()) ||
-            throw HandlerException("右侧路线不可达")
-        val linkData = room.linkData!!
-        linkData.disabledIdx.clear()
-        linkData.disabledIdx.addAll(disabled.distinct())
-        pushLinkData(room)
-    }
-
     private fun updateScores(room: Room) {
         val linkData = room.linkData!!
         linkData.scoreA = scoreOf(room, 0)
@@ -301,7 +284,8 @@ object RoomTypeLink : RoomType {
 
     private fun scoreOf(room: Room, playerIndex: Int): Double {
         val linkData = room.linkData!!
-        val route = routeOf(linkData, playerIndex).take(currentStepOf(linkData, playerIndex))
+        val skipped = skippedRouteOf(linkData, playerIndex).toSet()
+        val route = routeOf(linkData, playerIndex).take(currentStepOf(linkData, playerIndex)).filter { it !in skipped }
         val levelSum = route.sumOf { room.spells!![it].star }
         val fastestSum = route.sumOf { room.spells!![it].fastest.toDouble() }
         val start = if (playerIndex == 0) linkData.startMsA else linkData.startMsB
@@ -335,6 +319,9 @@ object RoomTypeLink : RoomType {
     private fun routeOf(linkData: LinkData, playerIndex: Int): ArrayList<Int> =
         if (playerIndex == 0) linkData.linkIdxA else linkData.linkIdxB
 
+    private fun skippedRouteOf(linkData: LinkData, playerIndex: Int): ArrayList<Int> =
+        if (playerIndex == 0) linkData.skippedIdxA else linkData.skippedIdxB
+
     private fun currentStepOf(linkData: LinkData, playerIndex: Int): Int =
         if (playerIndex == 0) linkData.currentStepA else linkData.currentStepB
 
@@ -348,20 +335,38 @@ object RoomTypeLink : RoomType {
     private fun isRouteConfirmed(linkData: LinkData, playerIndex: Int): Boolean =
         if (playerIndex == 0) linkData.routeConfirmedA else linkData.routeConfirmedB
 
-    private fun endIndex(board: BoardSpec, playerIndex: Int): Int =
-        if (playerIndex == 0) board.index(board.size - 1, board.size - 1) else board.index(board.size - 1, 0)
+    private fun startIndex(room: Room, playerIndex: Int): Int =
+        if (playerIndex == 0) room.roomConfig.linkStartA else room.roomConfig.linkStartB
+
+    private fun endIndex(room: Room, playerIndex: Int): Int =
+        if (playerIndex == 0) room.roomConfig.linkEndA else room.roomConfig.linkEndB
 
     private fun neighbors(room: Room, index: Int): List<Int> = when (room.roomConfig.linkConnectivity) {
-        4 -> room.boardSpec.neighbors4(index)
-        else -> room.boardSpec.neighbors8(index)
+        4 -> prioritizedNeighbors(room.boardSpec, index, false)
+        else -> prioritizedNeighbors(room.boardSpec, index, true)
     }
 
-    private fun neighbors(board: BoardSpec, index: Int): List<Int> = board.neighbors8(index)
+    private fun neighbors(board: BoardSpec, index: Int): List<Int> = prioritizedNeighbors(board, index, true)
+
+    private fun prioritizedNeighbors(board: BoardSpec, index: Int, includeDiagonal: Boolean): List<Int> {
+        val row = board.row(index)
+        val col = board.col(index)
+        val offsets = if (includeDiagonal) {
+            listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1, -1 to -1, -1 to 1, 1 to -1, 1 to 1)
+        } else {
+            listOf(-1 to 0, 1 to 0, 0 to -1, 0 to 1)
+        }
+        return offsets.mapNotNull { (dr, dc) ->
+            val nr = row + dr
+            val nc = col + dc
+            if (nr in 0 until board.size && nc in 0 until board.size) board.index(nr, nc) else null
+        }
+    }
 
     private fun completeRouteIfNeeded(room: Room, playerIndex: Int) {
         val linkData = room.linkData!!
         val route = routeOf(linkData, playerIndex)
-        val end = endIndex(room.boardSpec, playerIndex)
+        val end = endIndex(room, playerIndex)
         if (route.last() == end) return
         val disabled = linkData.disabledIdx.toSet()
         while (route.size > 1) {

@@ -22,7 +22,7 @@ object RefreshSpellHandler : RequestHandler {
             player in room.players || throw HandlerException("没有权限")
         }
         if (room.host === player && room.linkData != null) {
-            if (!room.linkData!!.selectCompleteA() || room.linkData!!.selectCompleteB()) {
+            if (room.phase == 1) {
                 throw HandlerException("link赛符卡还未选完，暂不能操作")
             }
         }

@@ -59,6 +59,12 @@ class LinkData {
     @SerialName("skip_used_b")
     var skipUsedB = 0
 
+    @SerialName("skipped_idx_a")
+    var skippedIdxA = ArrayList<Int>()
+
+    @SerialName("skipped_idx_b")
+    var skippedIdxB = ArrayList<Int>()
+
     @SerialName("score_a")
     var scoreA = 0.0
 
@@ -67,15 +73,6 @@ class LinkData {
 
     @SerialName("disabled_idx")
     var disabledIdx = ArrayList<Int>()
-
-    @Transient
-    var boardSize: Int = 5
-
-    private val bottomRight: Int get() = boardSize * boardSize - 1
-    private val bottomLeft: Int get() = boardSize * (boardSize - 1)
-
-    fun selectCompleteA() = routeConfirmedA && linkIdxA.last() == bottomRight
-    fun selectCompleteB() = routeConfirmedB && linkIdxB.last() == bottomLeft
 
     fun ensureStatusSize(area: Int) {
         while (statusA.size < area) statusA.add(0)
