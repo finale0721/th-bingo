@@ -176,7 +176,7 @@ class LinkAIAgent(private val room: Room) {
         if (linkData.skipUsedB >= skipLimit()) return false
         val startedAt = linkData.lastGetTimeB
         val waitMs = ((room.spells!![index].star + 1) * 60_000L)
-        return System.currentTimeMillis() - startedAt >= waitMs
+        return System.currentTimeMillis() - startedAt - room.actualCdTime[aiPlayerIndex] >= waitMs
     }
 
     private fun canSkipAfterVirtualFailure(index: Int, elapsedOnCell: Long): Boolean {

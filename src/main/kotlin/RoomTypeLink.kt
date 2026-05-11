@@ -218,7 +218,7 @@ object RoomTypeLink : RoomType {
             val cd = room.actualCdTime[playerIndex]
             if (startedAt > 0L && now - startedAt < cd) throw HandlerException("CD期间不能跳过")
             val waitMs = 45_000L
-            if (!force && now - startedAt < waitMs) throw HandlerException("还不能跳过这张卡")
+            if (!force && now - startedAt - cd < waitMs) throw HandlerException("还不能跳过这张卡")
             setSkipUsed(linkData, playerIndex, (skipUsedOf(linkData, playerIndex) + 1).coerceAtMost(allowed))
             skippedRouteOf(linkData, playerIndex).add(idx)
         } else {
