@@ -13,6 +13,9 @@ object RoomTypeLink : RoomType {
     override val canPause = false
 
     override fun onStart(room: Room) {
+        val baseCdTime = (room.roomConfig.cdTime ?: 0).toLong() * 1000L
+        room.actualCdTime[0] = baseCdTime.coerceAtLeast(1000L)
+        room.actualCdTime[1] = baseCdTime.coerceAtLeast(1000L)
         val board = room.boardSpec
         val topLeft = board.index(0, 0)
         val topRight = board.index(0, board.size - 1)
@@ -221,12 +224,14 @@ object RoomTypeLink : RoomType {
         val idx = route[step - 1]
         val now = System.currentTimeMillis()
         if (playerIndex == 0) {
+            route.drop(step).forEach { linkData.statusA[it] = NONE.value }
             linkData.statusA[idx] = LEFT_SELECT.value
             linkData.currentStepA = step - 1
             linkData.eventA = 1
             linkData.endMsA = 0
             linkData.lastGetTimeA = now - room.actualCdTime[0]
         } else {
+            route.drop(step).forEach { linkData.statusB[it] = NONE.value }
             linkData.statusB[idx] = RIGHT_SELECT.value
             linkData.currentStepB = step - 1
             linkData.eventB = 1
@@ -302,11 +307,29 @@ object RoomTypeLink : RoomType {
         val start = if (playerIndex == 0) linkData.startMsA else linkData.startMsB
         val event = if (playerIndex == 0) linkData.eventA else linkData.eventB
         val end = if (playerIndex == 0) linkData.endMsA else linkData.endMsB
-        val usedMs = if (start <= 0L) 0L else ((if (event == 3 && end > 0L) end else System.currentTimeMillis()) - start)
+        val usedMs = activeUsedMs(room, playerIndex, event, start, end)
         return room.boardSpec.size * 200.0 +
             levelSum * room.roomConfig.linkLevelCoefficient +
             fastestSum * room.roomConfig.linkFastestCoefficient -
             usedMs / 1000.0
+    }
+
+    private fun activeUsedMs(room: Room, playerIndex: Int, event: Int, start: Long, end: Long): Long {
+        if (start <= 0L) return 0L
+        val linkData = room.linkData!!
+        val now = System.currentTimeMillis()
+        val stop = if (event == 3 && end > 0L) end else now
+        val elapsed = (stop - start).coerceAtLeast(0L)
+        val step = currentStepOf(linkData, playerIndex)
+        val cd = room.actualCdTime[playerIndex].coerceAtLeast(0L)
+        val completedCd = ((if (event == 3) step - 1 else step - 1).coerceAtLeast(0)) * cd
+        val lastGet = if (playerIndex == 0) linkData.lastGetTimeA else linkData.lastGetTimeB
+        val currentCd = if (event == 3 || step <= 0 || lastGet <= 0L) {
+            0L
+        } else {
+            (stop - lastGet).coerceIn(0L, cd)
+        }
+        return (elapsed - completedCd - currentCd).coerceAtLeast(0L)
     }
 
     private fun routeOf(linkData: LinkData, playerIndex: Int): ArrayList<Int> =
