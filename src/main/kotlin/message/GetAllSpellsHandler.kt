@@ -17,7 +17,7 @@ object GetAllSpellsHandler : RequestHandler {
         var status = 0
         var leftCdTime = 0L
         var now = System.currentTimeMillis()
-        val countdown = room.roomConfig.countdown * 1000L
+        val countdown = if (room.type is RoomTypeLink && room.phase >= 2) 0L else room.roomConfig.countdown * 1000L
         val gameTime = room.roomConfig.gameTime * 60000L
         val cdTime = if (playerIndex >= 0) room.actualCdTime[playerIndex] else 0L // 使用该选手的实际CD时间
         if (room.started) {

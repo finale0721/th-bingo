@@ -152,6 +152,7 @@ object RoomTypeLink : RoomType {
         linkData.routeConfirmedA = true
         linkData.routeConfirmedB = true
         val now = System.currentTimeMillis()
+        room.startMs = now - room.roomConfig.countdown * 1000L
         linkData.startMsA = now
         linkData.startMsB = now
         linkData.eventA = 1
@@ -203,6 +204,8 @@ object RoomTypeLink : RoomType {
             val allowed = if (route.size > 10) 2 else 1
             if (!force && skipUsedOf(linkData, playerIndex) >= allowed) throw HandlerException("跳过次数已用完")
             val startedAt = if (playerIndex == 0) linkData.lastGetTimeA else linkData.lastGetTimeB
+            val cd = room.actualCdTime[playerIndex]
+            if (startedAt > 0L && now - startedAt < cd) throw HandlerException("CD期间不能跳过")
             val waitMs = ((room.spells!![idx].star + 1) * 60_000L)
             if (!force && now - startedAt < waitMs) throw HandlerException("还不能跳过这张卡")
             setSkipUsed(linkData, playerIndex, (skipUsedOf(linkData, playerIndex) + 1).coerceAtMost(allowed))
