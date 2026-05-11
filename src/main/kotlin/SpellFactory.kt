@@ -374,21 +374,28 @@ object SpellFactory {
      * Build a star array for LINK mode: fixed positions for corners/center/edges.
      */
     @Throws(HandlerException::class)
-    private fun buildLinkStarArray(difficulty: Difficulty): IntArray {
+    private fun buildLinkStarArray(difficulty: Difficulty, boardSize: Int): IntArray {
         val lvCount = difficulty.value
         val rand = ThreadLocalRandom.current().asKotlinRandom()
-        val idx = intArrayOf(0, 1, 3, 4)
-        val star123 = IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 }
-        idx.shuffle(rand)
-        star123.shuffle(rand)
+        val board = BoardSpec(boardSize)
+        val area = board.area
+        val starts = setOf(board.index(0, 0), board.index(0, board.size - 1))
+        val highPositions = highLevelPositions(board, rand).toMutableList()
+        val center = board.centerIndices()
+        val fivePos = center.firstOrNull { it in highPositions } ?: highPositions.first()
+        val fixed = mutableMapOf<Int, Int>()
+        starts.forEach { fixed[it] = 1 }
+        fixed[fivePos] = 5
+        highPositions.filter { it != fivePos && it !in starts }.forEach { fixed[it] = 4 }
+
+        val remainingCount = area - fixed.size
+        val lowStars = (IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 })
+            .toMutableList()
+        while (lowStars.size < remainingCount) lowStars.add(3)
+        lowStars.shuffle(rand)
         var j = 0
-        return IntArray(25) { i ->
-            when (i) {
-                0, 4 -> 1
-                6, 8, 16, 18 -> 4
-                12 -> 5
-                else -> star123[j++]
-            }
+        return IntArray(area) { i ->
+            fixed[i] ?: lowStars[j++]
         }
     }
 
@@ -452,7 +459,8 @@ object SpellFactory {
                 2 -> Difficulty.N
                 3 -> Difficulty.L
                 else -> Difficulty.L
-            }
+            },
+            boardSize
         )
     }
 

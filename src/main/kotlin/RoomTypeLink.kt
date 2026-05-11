@@ -5,7 +5,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.HandlerException
 import org.tfcc.bingo.message.LinkData
-import kotlin.math.abs
+import java.util.*
 
 object RoomTypeLink : RoomType {
     override val name = "Link赛"
@@ -20,6 +20,9 @@ object RoomTypeLink : RoomType {
         room.spellStatus!![topRight] = RIGHT_SELECT
         val linkData = LinkData()
         linkData.boardSize = board.size
+        linkData.ensureStatusSize(board.area)
+        linkData.statusA[topLeft] = LEFT_SELECT.value
+        linkData.statusB[topRight] = RIGHT_SELECT.value
         linkData.linkIdxA.add(topLeft)
         linkData.linkIdxB.add(topRight)
         room.linkData = linkData
@@ -46,94 +49,18 @@ object RoomTypeLink : RoomType {
         }
         return SpellFactory.drawSpells(
             DifficultyMode.LINK, spellCardVersion, games, ranks,
-            difficultyObj = diffObj
+            difficultyObj = diffObj,
+            boardSize = boardSize,
         )
     }
 
     override fun handleSelectSpell(room: Room, playerIndex: Int, spellIndex: Int) {
-        playerIndex >= 0 || throw HandlerException("不是玩家，不能操作")
-        val st = room.spellStatus!![spellIndex]
-        val board = room.boardSpec
-        val status =
-            if (playerIndex == 0) LEFT_SELECT
-            else RIGHT_SELECT
-
-        if (playerIndex == 0) {
-            if (room.linkData!!.selectCompleteA())
-                throw HandlerException("你的选卡已结束")
-
-            when (status) {
-                LEFT_SELECT -> {
-                    if (spellIndex in room.linkData!!.linkIdxA)
-                        throw HandlerException("已经选了这张卡")
-                    val idx0 = room.linkData!!.linkIdxA.last()
-                    val bottomRight = board.index(board.size - 1, board.size - 1)
-                    if (idx0 == bottomRight || !spellIndex.isNear(idx0, board))
-                        throw HandlerException("不合理的选卡")
-                    room.linkData!!.linkIdxA.add(spellIndex)
-                    room.spellStatus!![spellIndex] =
-                        if (st == RIGHT_SELECT) BOTH_SELECT
-                        else status
-                }
-
-                else -> throw HandlerException("还未轮到你")
-            }
-        } else {
-            if (room.linkData!!.selectCompleteB()) {
-                throw HandlerException("你的选卡已结束")
-            }
-            when (status) {
-                RIGHT_SELECT -> {
-                    if (room.linkData!!.linkIdxB.contains(spellIndex))
-                        throw HandlerException("已经选了这张卡")
-                    val idx0 = room.linkData!!.linkIdxB.last()
-                    val bottomLeft = board.index(board.size - 1, 0)
-                    if (idx0 == bottomLeft || !spellIndex.isNear(idx0, board))
-                        throw HandlerException("不合理的选卡")
-                    room.linkData!!.linkIdxB.add(spellIndex)
-                    room.spellStatus!![spellIndex] =
-                        if (st == LEFT_SELECT) BOTH_SELECT
-                        else status
-                }
-
-                else -> throw HandlerException("还未轮到你")
-            }
-        }
-
-        val playerName = room.players[playerIndex]!!.name
-        /*
-        if (room.host != null && playerName != Store.ROBOT_NAME) {
-            SpellLog.logSpellOperate(status, room.spells!![spellIndex], playerName, gameType = SpellLog.GameType.LINK)
-        }
-         */
+        appendRoute(room, playerIndex, spellIndex)
     }
 
     override fun handleFinishSpell(room: Room, isHost: Boolean, playerIndex: Int, spellIndex: Int, success: Boolean) {
-        isHost || throw HandlerException("权限不足")
-        playerIndex >= 0 || throw HandlerException("不是玩家，不能操作")
-        val st = room.spellStatus!![spellIndex]
-        val status =
-            if (playerIndex == 0) LEFT_GET
-            else RIGHT_GET
-
-        if (playerIndex == 0) {
-            if (!room.linkData!!.selectCompleteA()) {
-                throw HandlerException("选卡还未结束")
-            }
-            room.spellStatus!![spellIndex] = if (st == RIGHT_GET) BOTH_GET else status
-        } else {
-            if (!room.linkData!!.selectCompleteB()) {
-                throw HandlerException("选卡还未结束")
-            }
-            room.spellStatus!![spellIndex] = if (st == LEFT_GET) BOTH_GET else status
-        }
-
-        /*
-        val playerName = room.players[playerIndex]!!.name
-        if (room.host != null && playerName != Store.ROBOT_NAME) {
-            SpellLog.logSpellOperate(status, room.spells!![spellIndex], playerName, gameType = SpellLog.GameType.LINK)
-        }
-         */
+        isHost || playerIndex >= 0 || throw HandlerException("没有权限")
+        finishSelected(room, playerIndex, false, spellIndex)
     }
 
     override fun pushSpells(room: Room, spellIndex: Int, causer: String) {
@@ -154,13 +81,299 @@ object RoomTypeLink : RoomType {
         }
     }
 
-    private fun Int.isNear(other: Int, board: BoardSpec): Boolean {
-        val s = board.size
-        when (this % s) {
-            0 -> if (other == this - 1) return false
-            s - 1 -> if (other == this + 1) return false
+    override fun getAllSpellStatus(room: Room, playerIndex: Int): List<Int> {
+        val linkData = room.linkData ?: return super.getAllSpellStatus(room, playerIndex)
+        linkData.ensureStatusSize(room.boardArea)
+        return (0 until room.boardArea).map { idx ->
+            mergeStatus(linkData.statusA[idx], linkData.statusB[idx])
         }
-        val diff = abs(this - other)
-        return diff == 1 || diff == s - 1 || diff == s || diff == s + 1
+    }
+
+    fun appendRoute(room: Room, playerIndex: Int, spellIndex: Int) {
+        room.phase == 1 || throw HandlerException("不在路线构筑阶段")
+        val linkData = room.linkData!!
+        linkData.ensureStatusSize(room.boardArea)
+        if (spellIndex in linkData.disabledIdx) throw HandlerException("该格已禁用")
+        val route = routeOf(linkData, playerIndex)
+        if (isRouteConfirmed(linkData, playerIndex)) throw HandlerException("路线已确认")
+        if (spellIndex in route) throw HandlerException("已经选了这张卡")
+        val end = endIndex(room.boardSpec, playerIndex)
+        val last = route.last()
+        if (last == end) throw HandlerException("路线已到达终点")
+        if (!neighbors(room, last).contains(spellIndex)) throw HandlerException("不合理的选卡")
+        route.add(spellIndex)
+        pushLinkData(room)
+    }
+
+    fun undoRoute(room: Room, playerIndex: Int) {
+        room.phase == 1 || throw HandlerException("不在路线构筑阶段")
+        val linkData = room.linkData!!
+        val route = routeOf(linkData, playerIndex)
+        if (isRouteConfirmed(linkData, playerIndex)) throw HandlerException("路线已确认")
+        if (route.size <= 1) throw HandlerException("起点不能撤回")
+        route.removeAt(route.lastIndex)
+        pushLinkData(room)
+    }
+
+    fun confirmRoute(room: Room, playerIndex: Int, confirmed: Boolean) {
+        room.phase == 1 || throw HandlerException("不在路线构筑阶段")
+        val linkData = room.linkData!!
+        val route = routeOf(linkData, playerIndex)
+        if (confirmed) {
+            route.last() == endIndex(room.boardSpec, playerIndex) || throw HandlerException("路线还未到达终点")
+        }
+        if (playerIndex == 0) linkData.routeConfirmedA = confirmed else linkData.routeConfirmedB = confirmed
+        pushLinkData(room)
+    }
+
+    fun startRun(room: Room) {
+        room.phase = 2
+        val linkData = room.linkData!!
+        completeRouteIfNeeded(room, 0)
+        completeRouteIfNeeded(room, 1)
+        linkData.routeConfirmedA = true
+        linkData.routeConfirmedB = true
+        val now = System.currentTimeMillis()
+        linkData.startMsA = now
+        linkData.startMsB = now
+        linkData.eventA = 1
+        linkData.eventB = 1
+        linkData.lastGetTimeA = now - room.actualCdTime[0]
+        linkData.lastGetTimeB = now - room.actualCdTime[1]
+        if (linkData.linkIdxA.isNotEmpty()) linkData.statusA[linkData.linkIdxA[0]] = LEFT_SELECT.value
+        if (linkData.linkIdxB.isNotEmpty()) linkData.statusB[linkData.linkIdxB[0]] = RIGHT_SELECT.value
+        pushLinkData(room)
+    }
+
+    fun selectNext(room: Room, playerIndex: Int) {
+        room.phase == 2 || throw HandlerException("不在正式比赛阶段")
+        val linkData = room.linkData!!
+        linkData.ensureStatusSize(room.boardArea)
+        val route = routeOf(linkData, playerIndex)
+        val currentStep = currentStepOf(linkData, playerIndex)
+        if (currentStep >= route.size) throw HandlerException("路线已完成")
+        val idx = route[currentStep]
+        val status = if (playerIndex == 0) linkData.statusA[idx] else linkData.statusB[idx]
+        if (status == LEFT_SELECT.value || status == RIGHT_SELECT.value) throw HandlerException("已经选择了这张卡")
+        val now = System.currentTimeMillis()
+        val lastGet = if (playerIndex == 0) linkData.lastGetTimeA else linkData.lastGetTimeB
+        val remain = lastGet + room.actualCdTime[playerIndex] - now
+        if (remain > 1000L) throw HandlerException("还有${remain / 1000 + 1}秒才能选卡")
+        if (playerIndex == 0) {
+            linkData.statusA[idx] = LEFT_SELECT.value
+        } else {
+            linkData.statusB[idx] = RIGHT_SELECT.value
+        }
+        pushLinkData(room)
+    }
+
+    fun finishSelected(room: Room, playerIndex: Int, skip: Boolean, expectedIndex: Int? = null) {
+        room.phase == 2 || throw HandlerException("不在正式比赛阶段")
+        val linkData = room.linkData!!
+        linkData.ensureStatusSize(room.boardArea)
+        val route = routeOf(linkData, playerIndex)
+        val currentStep = currentStepOf(linkData, playerIndex)
+        if (currentStep >= route.size) throw HandlerException("路线已完成")
+        val idx = route[currentStep]
+        if (expectedIndex != null && expectedIndex != idx) throw HandlerException("只能按路线顺序收取")
+        val currentStatus = if (playerIndex == 0) linkData.statusA[idx] else linkData.statusB[idx]
+        if (!skip && currentStatus != LEFT_SELECT.value && currentStatus != RIGHT_SELECT.value) {
+            throw HandlerException("还未选择这张卡")
+        }
+        val now = System.currentTimeMillis()
+        if (skip) {
+            val allowed = if (route.size > 10) 2 else 1
+            if (skipUsedOf(linkData, playerIndex) >= allowed) throw HandlerException("跳过次数已用完")
+            val startedAt = if (playerIndex == 0) linkData.lastGetTimeA else linkData.lastGetTimeB
+            val waitMs = ((room.spells!![idx].star + 1) * 60_000L)
+            if (now - startedAt < waitMs) throw HandlerException("还不能跳过这张卡")
+            setSkipUsed(linkData, playerIndex, skipUsedOf(linkData, playerIndex) + 1)
+        } else {
+        }
+        if (playerIndex == 0) {
+            linkData.statusA[idx] = LEFT_GET.value
+            linkData.currentStepA = currentStep + 1
+            linkData.lastGetTimeA = now
+            if (linkData.currentStepA >= route.size) {
+                linkData.eventA = 3
+                linkData.endMsA = now
+            }
+        } else {
+            linkData.statusB[idx] = RIGHT_GET.value
+            linkData.currentStepB = currentStep + 1
+            linkData.lastGetTimeB = now
+            if (linkData.currentStepB >= route.size) {
+                linkData.eventB = 3
+                linkData.endMsB = now
+            }
+        }
+        updateScores(room)
+        pushLinkData(room)
+    }
+
+    fun setPhase(room: Room, phase: Int) {
+        when (phase) {
+            1 -> room.phase = 1
+            2 -> startRun(room)
+            3 -> {
+                room.phase = 3
+                val now = System.currentTimeMillis()
+                val linkData = room.linkData!!
+                if (linkData.eventA != 3) {
+                    linkData.eventA = 3
+                    linkData.endMsA = now
+                }
+                if (linkData.eventB != 3) {
+                    linkData.eventB = 3
+                    linkData.endMsB = now
+                }
+                updateScores(room)
+                pushLinkData(room)
+            }
+            else -> throw HandlerException("Link赛不支持该阶段")
+        }
+    }
+
+    fun setDisabled(room: Room, disabled: List<Int>) {
+        room.phase == 0 || room.phase == 1 || throw HandlerException("只能在准备或构筑阶段设置禁用格")
+        val board = room.boardSpec
+        val startsAndEnds = setOf(
+            board.index(0, 0),
+            board.index(0, board.size - 1),
+            board.index(board.size - 1, board.size - 1),
+            board.index(board.size - 1, 0),
+        )
+        disabled.all { board.isValidIndex(it) } || throw HandlerException("禁用格超出范围")
+        disabled.none { it in startsAndEnds } || throw HandlerException("禁用格不能覆盖起点或终点")
+        isReachable(board, board.index(0, 0), board.index(board.size - 1, board.size - 1), disabled.toSet()) ||
+            throw HandlerException("左侧路线不可达")
+        isReachable(board, board.index(0, board.size - 1), board.index(board.size - 1, 0), disabled.toSet()) ||
+            throw HandlerException("右侧路线不可达")
+        val linkData = room.linkData!!
+        linkData.disabledIdx.clear()
+        linkData.disabledIdx.addAll(disabled.distinct())
+        pushLinkData(room)
+    }
+
+    private fun updateScores(room: Room) {
+        val linkData = room.linkData!!
+        linkData.scoreA = scoreOf(room, 0)
+        linkData.scoreB = scoreOf(room, 1)
+    }
+
+    private fun scoreOf(room: Room, playerIndex: Int): Double {
+        val linkData = room.linkData!!
+        val route = routeOf(linkData, playerIndex).take(currentStepOf(linkData, playerIndex))
+        val levelSum = route.sumOf { room.spells!![it].star }
+        val fastestSum = route.sumOf { room.spells!![it].fastest.toDouble() }
+        val start = if (playerIndex == 0) linkData.startMsA else linkData.startMsB
+        val event = if (playerIndex == 0) linkData.eventA else linkData.eventB
+        val end = if (playerIndex == 0) linkData.endMsA else linkData.endMsB
+        val usedMs = if (start <= 0L) 0L else ((if (event == 3 && end > 0L) end else System.currentTimeMillis()) - start)
+        return room.boardSpec.size * 200.0 +
+            levelSum * room.roomConfig.linkLevelCoefficient +
+            fastestSum * room.roomConfig.linkFastestCoefficient -
+            usedMs / 1000.0
+    }
+
+    private fun routeOf(linkData: LinkData, playerIndex: Int): ArrayList<Int> =
+        if (playerIndex == 0) linkData.linkIdxA else linkData.linkIdxB
+
+    private fun currentStepOf(linkData: LinkData, playerIndex: Int): Int =
+        if (playerIndex == 0) linkData.currentStepA else linkData.currentStepB
+
+    private fun skipUsedOf(linkData: LinkData, playerIndex: Int): Int =
+        if (playerIndex == 0) linkData.skipUsedA else linkData.skipUsedB
+
+    private fun setSkipUsed(linkData: LinkData, playerIndex: Int, value: Int) {
+        if (playerIndex == 0) linkData.skipUsedA = value else linkData.skipUsedB = value
+    }
+
+    private fun isRouteConfirmed(linkData: LinkData, playerIndex: Int): Boolean =
+        if (playerIndex == 0) linkData.routeConfirmedA else linkData.routeConfirmedB
+
+    private fun endIndex(board: BoardSpec, playerIndex: Int): Int =
+        if (playerIndex == 0) board.index(board.size - 1, board.size - 1) else board.index(board.size - 1, 0)
+
+    private fun neighbors(room: Room, index: Int): List<Int> = when (room.roomConfig.linkConnectivity) {
+        4 -> room.boardSpec.neighbors4(index)
+        else -> room.boardSpec.neighbors8(index)
+    }
+
+    private fun neighbors(board: BoardSpec, index: Int): List<Int> = board.neighbors8(index)
+
+    private fun completeRouteIfNeeded(room: Room, playerIndex: Int) {
+        val linkData = room.linkData!!
+        val route = routeOf(linkData, playerIndex)
+        val end = endIndex(room.boardSpec, playerIndex)
+        if (route.last() == end) return
+        val disabled = linkData.disabledIdx.toSet()
+        while (route.size > 1) {
+            val suffix = shortestPath(room, route.last(), end, disabled, route.dropLast(1).toSet())
+            if (suffix != null) {
+                route.addAll(suffix.drop(1))
+                return
+            }
+            route.removeAt(route.lastIndex)
+        }
+        val suffix = shortestPath(room, route.last(), end, disabled, emptySet())
+            ?: throw HandlerException(if (playerIndex == 0) "左侧路线不可达" else "右侧路线不可达")
+        route.addAll(suffix.drop(1))
+    }
+
+    private fun shortestPath(room: Room, start: Int, end: Int, disabled: Set<Int>, occupied: Set<Int>): List<Int>? {
+        val blocked = disabled + occupied
+        val queue: Queue<Int> = LinkedList()
+        val prev = HashMap<Int, Int>()
+        val seen = mutableSetOf(start)
+        queue.add(start)
+        while (queue.isNotEmpty()) {
+            val cur = queue.remove()
+            if (cur == end) {
+                val path = ArrayList<Int>()
+                var p = cur
+                path.add(p)
+                while (p != start) {
+                    p = prev[p] ?: return null
+                    path.add(p)
+                }
+                path.reverse()
+                return path
+            }
+            for (next in neighbors(room, cur)) {
+                if (next in blocked || !seen.add(next)) continue
+                prev[next] = cur
+                queue.add(next)
+            }
+        }
+        return null
+    }
+
+    private fun isReachable(board: BoardSpec, start: Int, end: Int, disabled: Set<Int>): Boolean {
+        val queue: Queue<Int> = LinkedList()
+        val seen = mutableSetOf(start)
+        queue.add(start)
+        while (queue.isNotEmpty()) {
+            val cur = queue.remove()
+            if (cur == end) return true
+            for (next in neighbors(board, cur)) {
+                if (next !in disabled && seen.add(next)) queue.add(next)
+            }
+        }
+        return false
+    }
+
+    private fun mergeStatus(a: Int, b: Int): Int = when {
+        a == LEFT_GET.value && b == RIGHT_GET.value -> BOTH_GET.value
+        a == LEFT_SELECT.value && b == RIGHT_SELECT.value -> BOTH_SELECT.value
+        a == LEFT_GET.value -> LEFT_GET.value
+        b == RIGHT_GET.value -> RIGHT_GET.value
+        a == LEFT_SELECT.value -> LEFT_SELECT.value
+        b == RIGHT_SELECT.value -> RIGHT_SELECT.value
+        else -> 0
+    }
+
+    private fun pushLinkData(room: Room) {
+        room.push("push_link_data", room.linkData!!.encode())
     }
 }

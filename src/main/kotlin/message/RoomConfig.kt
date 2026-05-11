@@ -90,6 +90,15 @@ class RoomConfig(
     val hiddenSelectThresholdA: Int? = null,
     @SerialName("hidden_select_threshold_b")
     val hiddenSelectThresholdB: Int? = null,
+    /** Link赛等级系数X */
+    @SerialName("link_level_coefficient")
+    val linkLevelCoefficient: Double = 2.0,
+    /** Link赛补偿系数Y，乘以fastest字段 */
+    @SerialName("link_fastest_coefficient")
+    val linkFastestCoefficient: Double = 1.0,
+    /** Link赛连接规则，4=四向，8=八向 */
+    @SerialName("link_connectivity")
+    val linkConnectivity: Int = 8,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -119,7 +128,9 @@ class RoomConfig(
         customLevelCount.all { it in 0..(boardSize * boardSize) } ||
             throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
         boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
-        (type == 1 || boardSize == 5) || throw HandlerException("非标准赛仅支持5x5棋盘")
+        (type != 2 || boardSize == 5) || throw HandlerException("BP赛仅支持5x5棋盘")
+        (type != 3 || blindSetting == 1) || throw HandlerException("Link赛不支持盲盒模式")
+        (type != 3 || difficulty in 1..3) || throw HandlerException("Link赛仅支持低/中/高难度")
         (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
         portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
         (extraLineCount == 0 || (boardSize == 6 && type == 1)) || throw HandlerException("额外连线仅支持6x6标准赛")
@@ -128,6 +139,9 @@ class RoomConfig(
             throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
         hiddenSelectThresholdB == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
             throw HandlerException("右侧隐藏阈值应在1~${boardSize * boardSize}之间")
+        linkLevelCoefficient in 0.0..100.0 || throw HandlerException("Link赛等级系数范围应为0~100")
+        linkFastestCoefficient in 0.0..100.0 || throw HandlerException("Link赛补偿系数范围应为0~100")
+        linkConnectivity == 4 || linkConnectivity == 8 || throw HandlerException("Link赛连接规则只能为四向或八向")
     }
 
     operator fun plus(config: RoomConfigNullable): RoomConfig {
@@ -162,7 +176,10 @@ class RoomConfig(
             boardSize = config.boardSize ?: boardSize,
             extraLineCount = config.extraLineCount ?: extraLineCount,
             hiddenSelectThresholdA = config.hiddenSelectThresholdA ?: hiddenSelectThresholdA,
-            hiddenSelectThresholdB = config.hiddenSelectThresholdB ?: hiddenSelectThresholdB
+            hiddenSelectThresholdB = config.hiddenSelectThresholdB ?: hiddenSelectThresholdB,
+            linkLevelCoefficient = config.linkLevelCoefficient ?: linkLevelCoefficient,
+            linkFastestCoefficient = config.linkFastestCoefficient ?: linkFastestCoefficient,
+            linkConnectivity = config.linkConnectivity ?: linkConnectivity
         )
     }
 }
@@ -254,6 +271,12 @@ class RoomConfigNullable(
     val hiddenSelectThresholdA: Int? = null,
     @SerialName("hidden_select_threshold_b")
     val hiddenSelectThresholdB: Int? = null,
+    @SerialName("link_level_coefficient")
+    val linkLevelCoefficient: Double? = null,
+    @SerialName("link_fastest_coefficient")
+    val linkFastestCoefficient: Double? = null,
+    @SerialName("link_connectivity")
+    val linkConnectivity: Int? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -282,6 +305,10 @@ class RoomConfigNullable(
             throw HandlerException("AI作品修正数值范围应为-2~2")
         customLevelCount == null || customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
         boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
+        type == null || boardSize == null || type != 2 || boardSize == 5 || throw HandlerException("BP赛仅支持5x5棋盘")
+        type == null || blindSetting == null || type != 3 || blindSetting == 1 || throw HandlerException("Link赛不支持盲盒模式")
+        type == null || difficulty == null || type != 3 || difficulty in 1..3 ||
+            throw HandlerException("Link赛仅支持低/中/高难度")
         extraLineCount == null || extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")
         hiddenSelectThresholdA == null || boardSize == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
             throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
@@ -291,5 +318,11 @@ class RoomConfigNullable(
             throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
         portalCount == null || boardSize == null || portalCount in 1..(boardSize * boardSize) ||
             throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
+        linkLevelCoefficient == null || linkLevelCoefficient in 0.0..100.0 ||
+            throw HandlerException("Link赛等级系数范围应为0~100")
+        linkFastestCoefficient == null || linkFastestCoefficient in 0.0..100.0 ||
+            throw HandlerException("Link赛补偿系数范围应为0~100")
+        linkConnectivity == null || linkConnectivity == 4 || linkConnectivity == 8 ||
+            throw HandlerException("Link赛连接规则只能为四向或八向")
     }
 }
