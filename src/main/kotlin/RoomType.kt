@@ -6,6 +6,8 @@ import org.tfcc.bingo.message.HandlerException
 sealed interface RoomType {
     val name: String
 
+    fun difficultyMode(difficulty: Int?): DifficultyMode = DifficultyMode.NORMAL
+
     @Throws(HandlerException::class)
     fun rollSpellCard(room: Room, stars: IntArray? = null) {
         if (room.isCustomGame) {
@@ -30,7 +32,9 @@ sealed interface RoomType {
                             room.roomConfig.games,
                             room.roomConfig.ranks,
                             starArray,
-                            boardSize
+                            boardSize,
+                            room.type.difficultyMode(room.roomConfig.difficulty),
+                            room.roomConfig.customLevelCount.toIntArray()
                         )
                     } else {
                         room.type.randSpellsWithStar(
@@ -46,7 +50,9 @@ sealed interface RoomType {
                             room.roomConfig.games,
                             room.roomConfig.ranks,
                             stars,
-                            boardSize
+                            boardSize,
+                            room.type.difficultyMode(room.roomConfig.difficulty),
+                            room.roomConfig.customLevelCount.toIntArray()
                         )
                     } else {
                         room.type.randSpellsWithStar(

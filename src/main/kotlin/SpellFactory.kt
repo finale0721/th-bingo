@@ -621,11 +621,13 @@ object SpellFactory {
         ranks: Array<String>?,
         stars: IntArray,
         boardSize: Int = 5,
+        mode: DifficultyMode = DifficultyMode.NORMAL,
+        customSettings: IntArray? = null,
     ): Array<Spell> {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val exPos = ranksToExPos(ranks, rand, board)
-        val priorityIndices = fixedHighLevelIndices(stars, board)
+        val priorityIndices = fixedHighLevelIndices(mode, stars, board, customSettings)
         return SpellConfig.getFromCustomPool(customPool, games, ranks, exPos, stars, rand, priorityIndices)
     }
 

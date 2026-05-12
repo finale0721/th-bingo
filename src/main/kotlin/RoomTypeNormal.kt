@@ -143,7 +143,7 @@ object RoomTypeNormal : RoomType {
         throw HandlerException("不支持下一回合的游戏类型")
     }
 
-    private fun resolveDifficultyMode(difficulty: Int?): DifficultyMode = when {
+    override fun difficultyMode(difficulty: Int?): DifficultyMode = when {
         difficulty == 6 -> DifficultyMode.CUSTOM
         difficulty != null && difficulty >= 4 -> DifficultyMode.OD
         else -> DifficultyMode.NORMAL
@@ -158,7 +158,7 @@ object RoomTypeNormal : RoomType {
         boardSize: Int,
         customSettings: IntArray?
     ): Array<Spell> {
-        val mode = resolveDifficultyMode(difficulty)
+        val mode = difficultyMode(difficulty)
         val diffObj = when (mode) {
             DifficultyMode.NORMAL -> when (difficulty) {
                 1 -> Difficulty.E
@@ -177,7 +177,7 @@ object RoomTypeNormal : RoomType {
     }
 
     override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, customSettings: IntArray?): IntArray {
-        val mode = resolveDifficultyMode(difficulty)
+        val mode = difficultyMode(difficulty)
         val diffObj = when (mode) {
             DifficultyMode.NORMAL -> when (difficulty) {
                 1 -> Difficulty.E
@@ -206,7 +206,7 @@ object RoomTypeNormal : RoomType {
         if (stars == null) {
             return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, customSettings)
         }
-        val mode = resolveDifficultyMode(difficulty)
+        val mode = difficultyMode(difficulty)
         return SpellFactory.drawSpellsWithStar(
             mode, spellCardVersion, games, ranks, stars, boardSize, customSettings
         )

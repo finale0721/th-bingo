@@ -12,6 +12,8 @@ object RoomTypeLink : RoomType {
 
     override val canPause = false
 
+    override fun difficultyMode(difficulty: Int?): DifficultyMode = DifficultyMode.LINK
+
     override fun rollSpellCard(room: Room, stars: IntArray?) {
         val linkStars = SpellFactory.buildLinkStarArray(
             linkDifficulty(room.roomConfig.difficulty),

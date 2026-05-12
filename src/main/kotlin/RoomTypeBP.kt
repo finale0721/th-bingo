@@ -14,6 +14,9 @@ object RoomTypeBP : RoomType {
 
     override val canPause = true
 
+    override fun difficultyMode(difficulty: Int?): DifficultyMode =
+        if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
+
     override fun onStart(room: Room) {
         room.bpData = BpData.create(
             room.boardSpec,
@@ -70,7 +73,7 @@ object RoomTypeBP : RoomType {
         boardSize: Int,
         customSettings: IntArray?
     ): Array<Spell> {
-        val mode = if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
+        val mode = difficultyMode(difficulty)
         val stars = SpellFactory.buildStarArray(
             mode,
             difficulty,
@@ -84,7 +87,7 @@ object RoomTypeBP : RoomType {
     }
 
     override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, customSettings: IntArray?): IntArray {
-        val mode = if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
+        val mode = difficultyMode(difficulty)
         return SpellFactory.buildStarArray(
             mode,
             difficulty,
