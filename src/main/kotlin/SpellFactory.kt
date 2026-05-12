@@ -615,6 +615,20 @@ object SpellFactory {
         return drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize, customSettings)
     }
 
+    fun drawCustomPoolSpellsWithStar(
+        customPool: Array<Spell>,
+        games: Array<String>,
+        ranks: Array<String>?,
+        stars: IntArray,
+        boardSize: Int = 5,
+    ): Array<Spell> {
+        val rand = ThreadLocalRandom.current().asKotlinRandom()
+        val board = BoardSpec(boardSize)
+        val exPos = ranksToExPos(ranks, rand, board)
+        val priorityIndices = fixedHighLevelIndices(stars, board)
+        return SpellConfig.getFromCustomPool(customPool, games, ranks, exPos, stars, rand, priorityIndices)
+    }
+
     // ---- Legacy public API (delegates to unified methods) ----
     // Kept for backward compatibility during transition; RoomType* will be updated next.
 

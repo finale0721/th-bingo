@@ -1,4 +1,4 @@
-package org.tfcc.bingo
+﻿package org.tfcc.bingo
 
 import org.tfcc.bingo.message.*
 import java.util.*
@@ -15,55 +15,56 @@ class Room(
     var spells2: Array<Spell>? = null
     var startMs: Long = 0
 
-    /** 每个格子的状态 */
+    /** 姣忎釜鏍煎瓙鐨勭姸鎬?*/
     var spellStatus: Array<SpellStatus>? = null
 
     /**
-     * 双方选手客户端目前显示的符卡状态（业务逻辑不要乱改这个字段）
+     * 鍙屾柟閫夋墜瀹㈡埛绔洰鍓嶆樉绀虹殑绗﹀崱鐘舵€侊紙涓氬姟閫昏緫涓嶈涔辨敼杩欎釜瀛楁锛?
      */
     var spellStatusInPlayerClient: Array<IntArray>? = null
 
-    /** 比分 */
+    /** 姣斿垎 */
     val score = intArrayOf(0, 0)
 
-    /** 连续多局就需要锁上 */
+    /** 杩炵画澶氬眬灏遍渶瑕侀攣涓?*/
     var locked = false
     val changeCardCount = intArrayOf(0, 0)
 
-    /** 上次收卡时间戳 */
+    /** 涓婃鏀跺崱鏃堕棿鎴?*/
     val lastGetTime = longArrayOf(0, 0)
 
-    /** 各选手的实际CD时间（基础CD + 修正值），单位：毫秒 */
+    /** 鍚勯€夋墜鐨勫疄闄匔D鏃堕棿锛堝熀纭€CD + 淇鍊硷級锛屽崟浣嶏細姣 */
     val actualCdTime = longArrayOf(0, 0)
 
-    /** 累计暂停时长，毫秒 */
+    /** 绱鏆傚仠鏃堕暱锛屾绉?*/
     var totalPauseMs: Long = 0
 
-    /** 开始暂停时刻，毫秒，0表示没暂停 */
+    /** 寮€濮嬫殏鍋滄椂鍒伙紝姣锛?琛ㄧず娌℃殏鍋?*/
     var pauseBeginMs: Long = 0
 
-    /** 上一次结束暂停的时刻，毫秒，0表示从未暂停过 */
+    /** 涓婁竴娆＄粨鏉熸殏鍋滅殑鏃跺埢锛屾绉掞紝0琛ㄧず浠庢湭鏆傚仠杩?*/
     var pauseEndMs: Long = 0
 
-    /** 上一场是谁赢，1或2 */
+    /** 涓婁竴鍦烘槸璋佽耽锛?鎴? */
     var lastWinner: Int = 0
     var bpData: BpData? = null
     var linkData: LinkData? = null
     var normalData: NormalData? = null
+    var customCardPool: Array<Spell> = emptyArray()
 
-    /** 纯客户端用，服务器只记录 */
+    /** 绾鎴风鐢紝鏈嶅姟鍣ㄥ彧璁板綍 */
     var phase: Int = 0
 
-    /** 观众 */
+    /** 瑙備紬 */
     val watchers = ArrayList<Player>()
 
     var banPick: BanPick? = null
     var debugSpells: IntArray? = null
 
-    /** 操作记录器 */
+    /** 鎿嶄綔璁板綍鍣?*/
     var gameLogger: GameLogger? = null
 
-    /** 最后一次操作的时间戳，毫秒，业务逻辑中请勿修改此字段 */
+    /** 鏈€鍚庝竴娆℃搷浣滅殑鏃堕棿鎴筹紝姣锛屼笟鍔￠€昏緫涓鍕夸慨鏀规瀛楁 */
     var lastOperateMs: Long = 0
     val boardSpec: BoardSpec
         get() = BoardSpec(roomConfig.boardSize)
@@ -76,7 +77,7 @@ class Room(
             1 -> RoomTypeNormal
             2 -> RoomTypeBP
             3 -> RoomTypeLink
-            else -> throw HandlerException("不支持的游戏类型")
+            else -> throw HandlerException("涓嶆敮鎸佺殑娓告垙绫诲瀷")
         }
 
     fun isHost(player: Player) = if (host != null) host === player

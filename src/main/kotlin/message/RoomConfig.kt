@@ -1,102 +1,102 @@
-package org.tfcc.bingo.message
+﻿package org.tfcc.bingo.message
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
 class RoomConfig(
-    /** 房间名 */
+    /** 鎴块棿鍚?*/
     val rid: String,
-    /** 1-标准赛，2-BP赛，3-link赛 */
+    /** 1-鏍囧噯璧涳紝2-BP璧涳紝3-link璧?*/
     val type: Int,
-    /** 游戏总时间（不含倒计时），单位：分 */
+    /** 娓告垙鎬绘椂闂达紙涓嶅惈鍊掕鏃讹級锛屽崟浣嶏細鍒?*/
     @SerialName("game_time")
     val gameTime: Int,
-    /** 倒计时，单位：秒 */
+    /** 鍊掕鏃讹紝鍗曚綅锛氱 */
     val countdown: Int,
-    /** 含有哪些作品 */
+    /** 鍚湁鍝簺浣滃搧 */
     var games: Array<String>,
-    /** 含有哪些游戏难度，也就是L卡和EX卡 */
+    /** 鍚湁鍝簺娓告垙闅惧害锛屼篃灏辨槸L鍗″拰EX鍗?*/
     var ranks: Array<String>,
-    /** 需要胜利的局数，例如2表示bo3，空表示1 */
+    /** 闇€瑕佽儨鍒╃殑灞€鏁帮紝渚嬪2琛ㄧずbo3锛岀┖琛ㄧず1 */
     @SerialName("need_win")
     val needWin: Int?,
-    /** 难度（影响不同星级的卡的分布），1对应E，2对应N，3对应L，4对应OD，5对应ODP，6对应自定义 */
+    /** 闅惧害锛堝奖鍝嶄笉鍚屾槦绾х殑鍗＄殑鍒嗗竷锛夛紝1瀵瑰簲E锛?瀵瑰簲N锛?瀵瑰簲L锛?瀵瑰簲OD锛?瀵瑰簲ODP锛?瀵瑰簲鑷畾涔?*/
     val difficulty: Int?,
-    /** 选卡cd，收卡后要多少秒才能选下一张卡，空表示0 */
+    /** 閫夊崱cd锛屾敹鍗″悗瑕佸灏戠鎵嶈兘閫変笅涓€寮犲崱锛岀┖琛ㄧず0 */
     @SerialName("cd_time")
     val cdTime: Int?,
-    /** 左侧选手（A）的CD修正值，单位：秒 */
+    /** 宸︿晶閫夋墜锛圓锛夌殑CD淇鍊硷紝鍗曚綅锛氱 */
     @SerialName("cd_modifier_a")
     val cdModifierA: Int?,
-    /** 右侧选手（B）的CD修正值，单位：秒 */
+    /** 鍙充晶閫夋墜锛圔锛夌殑CD淇鍊硷紝鍗曚綅锛氱 */
     @SerialName("cd_modifier_b")
     val cdModifierB: Int?,
-    /** 是否为团体赛 */
+    /** 鏄惁涓哄洟浣撹禌 */
     @SerialName("reserved_type")
     val reservedType: Int? = null,
-    /** 盲盒设置（对标准/BP生效） */
+    /** 鐩茬洅璁剧疆锛堝鏍囧噯/BP鐢熸晥锛?*/
     @SerialName("blind_setting")
     var blindSetting: Int,
-    /** 题库版本 */
+    /** 棰樺簱鐗堟湰 */
     @SerialName("spell_version")
     var spellCardVersion: Int,
-    /** 特殊模式：双重盘面 */
+    /** 鐗规畩妯″紡锛氬弻閲嶇洏闈?*/
     @SerialName("dual_board")
     var dualBoard: Int,
-    /** 双重盘面设定 */
+    /** 鍙岄噸鐩橀潰璁惧畾 */
     @SerialName("portal_count")
     var portalCount: Int,
-    /** 盲盒揭示等级 */
+    /** 鐩茬洅鎻ず绛夌骇 */
     @SerialName("blind_reveal_level")
     var blindRevealLevel: Int,
-    /** 双重盘面差异度 */
+    /** 鍙岄噸鐩橀潰宸紓搴?*/
     @SerialName("diff_level")
     var diffLevel: Int,
-    /** 是否启用AI陪练 */
+    /** 鏄惁鍚敤AI闄粌 */
     @SerialName("use_ai")
     val useAI: Boolean,
-    /** AI策略难度 */
+    /** AI绛栫暐闅惧害 */
     @SerialName("ai_strategy_level")
-    val aiStrategyLevel: Int, // 1:初级, 2:中级, 3:高级
-    /** AI决策风格 */
+    val aiStrategyLevel: Int, // 1:鍒濈骇, 2:涓骇, 3:楂樼骇
+    /** AI鍐崇瓥椋庢牸 */
     @SerialName("ai_style")
-    val aiStyle: Int, // 0:默认, 1:进攻型, 2:防守型
-    /** AI底力 */
+    val aiStyle: Int, // 0:榛樿, 1:杩涙敾鍨? 2:闃插畧鍨?
+    /** AI搴曞姏 */
     @SerialName("ai_base_power")
     val aiBasePower: Float,
-    /** AI熟练度 */
+    /** AI鐔熺粌搴?*/
     @SerialName("ai_experience")
     val aiExperience: Float,
-    /** AI选卡温度 */
+    /** AI閫夊崱娓╁害 */
     @SerialName("ai_temperature")
     val aiTemperature: Float,
-    /** 游戏权重 */
+    /** 娓告垙鏉冮噸 */
     @SerialName("game_weight")
     val gameWeight: HashMap<String, Int>,
-    /** AI作品修正 */
+    /** AI浣滃搧淇 */
     @SerialName("ai_preference")
     val aiPreference: HashMap<String, Int>,
-    /** 自定义等级数量 */
+    /** 鑷畾涔夌瓑绾ф暟閲?*/
     @SerialName("custom_level_count")
     val customLevelCount: Array<Int>,
-    /** 棋盘边长，4x4/5x5/6x6 */
+    /** 妫嬬洏杈归暱锛?x4/5x5/6x6 */
     @SerialName("board_size")
     val boardSize: Int = 5,
-    /** 6x6额外连线数量 */
+    /** 6x6棰濆杩炵嚎鏁伴噺 */
     @SerialName("extra_line_count")
     val extraLineCount: Int = 0,
     @SerialName("hidden_select_threshold_a")
     val hiddenSelectThresholdA: Int? = null,
     @SerialName("hidden_select_threshold_b")
     val hiddenSelectThresholdB: Int? = null,
-    /** Link赛等级系数X */
+    /** Link璧涚瓑绾х郴鏁癤 */
     @SerialName("link_level_coefficient")
     val linkLevelCoefficient: Double = 2.0,
-    /** Link赛时长系数Y，乘以fastest字段 */
+    /** Link璧涙椂闀跨郴鏁癥锛屼箻浠astest瀛楁 */
     @SerialName("link_fastest_coefficient")
     val linkFastestCoefficient: Double = 1.0,
-    /** Link赛连接规则，4=四向，8=八向 */
+    /** Link璧涜繛鎺ヨ鍒欙紝4=鍥涘悜锛?=鍏悜 */
     @SerialName("link_connectivity")
     val linkConnectivity: Int = 8,
     @SerialName("link_disabled_idx")
@@ -109,61 +109,62 @@ class RoomConfig(
     val linkStartB: Int = boardSize - 1,
     @SerialName("link_end_b")
     val linkEndB: Int = boardSize * (boardSize - 1),
+    @SerialName("custom_card_pool_enabled")
+    val customCardPoolEnabled: Boolean = false,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
-        rid.isNotEmpty() || throw HandlerException("房间名不能为空")
-        type in 1..3 || throw HandlerException("不支持的游戏类型")
-        gameTime in 1..1440 || throw HandlerException("游戏时间的数值不正确")
-        countdown in 0..86400 || throw HandlerException("倒计时的数值不正确")
-        games.size < 100 || throw HandlerException("选择的作品数太多")
-        ranks.size <= 6 || throw HandlerException("选择的难度数太多")
-        needWin == null || needWin in 1..99 || throw HandlerException("需要胜场的数值不正确")
-        difficulty == null || difficulty in 1..6 || throw HandlerException("难度设置不正确")
-        cdTime == null || cdTime in 0..1440 || throw HandlerException("选卡cd的数值不正确")
-        cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("左侧选手CD修正值范围应为-1440~2880")
-        cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("右侧选手CD修正值范围应为-1440~2880")
-        blindSetting in 1..3 || throw HandlerException("盲盒模式设置不正确")
-        spellCardVersion in 1..10 || throw HandlerException("题库版本选择不正确")
-        dualBoard in 0..1 || throw HandlerException("双重模式设置不正确")
-        blindRevealLevel in 0..4 || throw HandlerException("盲盒揭示等级应在0~4之间")
-        diffLevel in -1..5 || throw HandlerException("盘面差异度等级应在-1~5之间")
-        aiStrategyLevel in 1..3 || throw HandlerException("AI策略难度设置范围应为1~3")
-        aiStyle in 0..2 || throw HandlerException("AI决策风格设置范围应为0~2")
-        aiBasePower < 10.1f || throw HandlerException("AI底力设置范围应为1~10")
-        aiExperience < 10.1f || throw HandlerException("AI熟练度设置范围应为1~10")
-        gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
-        aiPreference.values.all { it in -2..2 } || throw HandlerException("AI作品修正数值范围应为-2~2")
-        customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
-        customLevelCount.all { it in 0..(boardSize * boardSize) } ||
-            throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
-        boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
-        (type != 2 || boardSize == 5) || throw HandlerException("BP赛仅支持5x5棋盘")
-        (type != 3 || blindSetting == 1) || throw HandlerException("Link赛不支持盲盒模式")
-        (type != 3 || dualBoard == 0) || throw HandlerException("Link赛不支持双盘模式")
-        (type != 3 || difficulty in 1..3) || throw HandlerException("Link赛仅支持低/中/高难度")
-        // (!useAI || boardSize == 5) || throw HandlerException("AI陪练仅支持5x5棋盘")
-        portalCount in 1..(boardSize * boardSize) || throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
-        (extraLineCount == 0 || (boardSize == 6 && type == 1)) || throw HandlerException("额外连线仅支持6x6标准赛")
-        extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")
+        rid.isNotEmpty() || throw HandlerException("room id is empty")
+        type in 1..3 || throw HandlerException("unsupported game type")
+        gameTime in 1..1440 || throw HandlerException("invalid game time")
+        countdown in 0..86400 || throw HandlerException("invalid countdown")
+        games.size < 100 || throw HandlerException("too many games")
+        ranks.size <= 6 || throw HandlerException("too many ranks")
+        needWin == null || needWin in 1..99 || throw HandlerException("invalid need_win")
+        difficulty == null || difficulty in 1..6 || throw HandlerException("invalid difficulty")
+        cdTime == null || cdTime in 0..1440 || throw HandlerException("invalid cd_time")
+        cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("invalid cd_modifier_a")
+        cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("invalid cd_modifier_b")
+        blindSetting in 1..3 || throw HandlerException("invalid blind setting")
+        spellCardVersion in 1..10 || throw HandlerException("invalid spell version")
+        dualBoard in 0..1 || throw HandlerException("invalid dual board setting")
+        blindRevealLevel in 0..4 || throw HandlerException("invalid blind reveal level")
+        diffLevel in -1..5 || throw HandlerException("invalid diff level")
+        aiStrategyLevel in 1..3 || throw HandlerException("invalid ai strategy level")
+        aiStyle in 0..2 || throw HandlerException("invalid ai style")
+        aiBasePower < 10.1f || throw HandlerException("invalid ai base power")
+        aiExperience < 10.1f || throw HandlerException("invalid ai experience")
+        gameWeight.values.all { it in -2..2 } || throw HandlerException("invalid game weight")
+        aiPreference.values.all { it in -2..2 } || throw HandlerException("invalid ai preference")
+        customLevelCount.size == 11 || throw HandlerException("invalid custom level count")
+        customLevelCount.all { it in 0..(boardSize * boardSize) } || throw HandlerException("invalid custom level count")
+        boardSize in 4..6 || throw HandlerException("invalid board size")
+        (type != 2 || boardSize == 5) || throw HandlerException("BP only supports 5x5 board")
+        (type != 3 || blindSetting == 1) || throw HandlerException("Link does not support blind mode")
+        (type != 3 || dualBoard == 0) || throw HandlerException("Link does not support dual board")
+        (type != 3 || difficulty in 1..3) || throw HandlerException("Link only supports E/N/L difficulty")
+        portalCount in 1..(boardSize * boardSize) || throw HandlerException("invalid portal count")
+        (extraLineCount == 0 || (boardSize == 6 && type == 1)) ||
+            throw HandlerException("extra lines only support 6x6 standard")
+        extraLineCount in 0..4 || throw HandlerException("invalid extra line count")
         hiddenSelectThresholdA == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
-            throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
+            throw HandlerException("invalid hidden threshold a")
         hiddenSelectThresholdB == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
-            throw HandlerException("右侧隐藏阈值应在1~${boardSize * boardSize}之间")
-        linkLevelCoefficient in 0.0..100.0 || throw HandlerException("Link赛等级系数范围应为0~100")
-        linkFastestCoefficient in 0.0..10.0 || throw HandlerException("Link赛时长系数范围应为0~10")
-        linkConnectivity == 4 || linkConnectivity == 8 || throw HandlerException("Link赛连接规则只能为四向或八向")
+            throw HandlerException("invalid hidden threshold b")
+        linkLevelCoefficient in 0.0..100.0 || throw HandlerException("invalid link level coefficient")
+        linkFastestCoefficient in 0.0..10.0 || throw HandlerException("invalid link fastest coefficient")
+        linkConnectivity == 4 || linkConnectivity == 8 || throw HandlerException("invalid link connectivity")
         val boardArea = boardSize * boardSize
         val linkEndpoints = listOf(linkStartA, linkEndA, linkStartB, linkEndB)
-        linkEndpoints.all { it in 0 until boardArea } || throw HandlerException("Link赛起点/终点超出棋盘范围")
-        linkStartA != linkEndA || throw HandlerException("Link赛左侧起点和终点不能相同")
-        linkStartB != linkEndB || throw HandlerException("Link赛右侧起点和终点不能相同")
-        linkDisabledIdx.all { it in 0 until boardArea } || throw HandlerException("Link赛禁用格超出棋盘范围")
-        linkDisabledIdx.distinct().size == linkDisabledIdx.size || throw HandlerException("Link赛禁用格不能重复")
-        linkDisabledIdx.none { it in linkEndpoints } || throw HandlerException("Link赛禁用格不能覆盖起点或终点")
+        linkEndpoints.all { it in 0 until boardArea } || throw HandlerException("link endpoint out of board")
+        linkStartA != linkEndA || throw HandlerException("link A start and end cannot be same")
+        linkStartB != linkEndB || throw HandlerException("link B start and end cannot be same")
+        linkDisabledIdx.all { it in 0 until boardArea } || throw HandlerException("link disabled index out of board")
+        linkDisabledIdx.distinct().size == linkDisabledIdx.size || throw HandlerException("duplicate link disabled index")
+        linkDisabledIdx.none { it in linkEndpoints } || throw HandlerException("link disabled index covers endpoint")
         if (type == 3) {
-            linkReachable(linkStartA, linkEndA, linkDisabledIdx.toSet()) || throw HandlerException("Link赛左侧路线不可达")
-            linkReachable(linkStartB, linkEndB, linkDisabledIdx.toSet()) || throw HandlerException("Link赛右侧路线不可达")
+            linkReachable(linkStartA, linkEndA, linkDisabledIdx.toSet()) || throw HandlerException("link A route unreachable")
+            linkReachable(linkStartB, linkEndB, linkDisabledIdx.toSet()) || throw HandlerException("link B route unreachable")
         }
     }
 
@@ -236,92 +237,93 @@ class RoomConfig(
             linkStartA = config.linkStartA ?: linkStartA,
             linkEndA = config.linkEndA ?: linkEndA,
             linkStartB = config.linkStartB ?: linkStartB,
-            linkEndB = config.linkEndB ?: linkEndB
+            linkEndB = config.linkEndB ?: linkEndB,
+            customCardPoolEnabled = config.customCardPoolEnabled ?: customCardPoolEnabled
         )
     }
 }
 
 @Serializable
 class RoomConfigNullable(
-    /** 房间名 */
+    /** 鎴块棿鍚?*/
     val rid: String,
-    /** 1-标准赛，2-BP赛，3-link赛 */
+    /** 1-鏍囧噯璧涳紝2-BP璧涳紝3-link璧?*/
     val type: Int? = null,
-    /** 游戏总时间（不含倒计时），单位：分 */
+    /** 娓告垙鎬绘椂闂达紙涓嶅惈鍊掕鏃讹級锛屽崟浣嶏細鍒?*/
     @SerialName("game_time")
     val gameTime: Int? = null,
-    /** 倒计时，单位：秒 */
+    /** 鍊掕鏃讹紝鍗曚綅锛氱 */
     val countdown: Int? = null,
-    /** 含有哪些作品 */
+    /** 鍚湁鍝簺浣滃搧 */
     val games: Array<String>? = null,
-    /** 含有哪些游戏难度，也就是L卡和EX卡 */
+    /** 鍚湁鍝簺娓告垙闅惧害锛屼篃灏辨槸L鍗″拰EX鍗?*/
     val ranks: Array<String>? = null,
-    /** 需要胜利的局数，例如2表示bo3，空表示1 */
+    /** 闇€瑕佽儨鍒╃殑灞€鏁帮紝渚嬪2琛ㄧずbo3锛岀┖琛ㄧず1 */
     @SerialName("need_win")
     val needWin: Int? = null,
-    /** 难度（影响不同星级的卡的分布），1对应E，2对应N，3对应L，4对应OD，5对应ODP，6对应自定义 */
+    /** 闅惧害锛堝奖鍝嶄笉鍚屾槦绾х殑鍗＄殑鍒嗗竷锛夛紝1瀵瑰簲E锛?瀵瑰簲N锛?瀵瑰簲L锛?瀵瑰簲OD锛?瀵瑰簲ODP锛?瀵瑰簲鑷畾涔?*/
     val difficulty: Int? = null,
-    /** 选卡cd，收卡后要多少秒才能选下一张卡，空表示0 */
+    /** 閫夊崱cd锛屾敹鍗″悗瑕佸灏戠鎵嶈兘閫変笅涓€寮犲崱锛岀┖琛ㄧず0 */
     @SerialName("cd_time")
     val cdTime: Int? = null,
-    /** 左侧选手（A）的CD修正值，单位：秒 */
+    /** 宸︿晶閫夋墜锛圓锛夌殑CD淇鍊硷紝鍗曚綅锛氱 */
     @SerialName("cd_modifier_a")
     val cdModifierA: Int? = null,
-    /** 右侧选手（B）的CD修正值，单位：秒 */
+    /** 鍙充晶閫夋墜锛圔锛夌殑CD淇鍊硷紝鍗曚綅锛氱 */
     @SerialName("cd_modifier_b")
     val cdModifierB: Int? = null,
-    /** 是否为团体赛 */
+    /** 鏄惁涓哄洟浣撹禌 */
     @SerialName("reserved_type")
     val reservedType: Int? = null,
-    /** 盲盒设置（暂时只对标准生效） */
+    /** 鐩茬洅璁剧疆锛堟殏鏃跺彧瀵规爣鍑嗙敓鏁堬級 */
     @SerialName("blind_setting")
     var blindSetting: Int? = null,
-    /** 题库版本 */
+    /** 棰樺簱鐗堟湰 */
     @SerialName("spell_version")
     var spellCardVersion: Int? = null,
-    /** 特殊模式：双重盘面 */
+    /** 鐗规畩妯″紡锛氬弻閲嶇洏闈?*/
     @SerialName("dual_board")
     var dualBoard: Int? = null,
-    /** 双重盘面设定 */
+    /** 鍙岄噸鐩橀潰璁惧畾 */
     @SerialName("portal_count")
     var portalCount: Int? = null,
-    /** 盲盒揭示等级 */
+    /** 鐩茬洅鎻ず绛夌骇 */
     @SerialName("blind_reveal_level")
     var blindRevealLevel: Int? = null,
-    /** 双重盘面差异度 */
+    /** 鍙岄噸鐩橀潰宸紓搴?*/
     @SerialName("diff_level")
     var diffLevel: Int? = null,
-    /** 是否启用AI陪练 */
+    /** 鏄惁鍚敤AI闄粌 */
     @SerialName("use_ai")
     val useAI: Boolean? = null, // 0/1
-    /** AI策略难度 */
+    /** AI绛栫暐闅惧害 */
     @SerialName("ai_strategy_level")
-    val aiStrategyLevel: Int? = null, // 1:初级, 2:中级, 3:高级
-    /** AI决策风格 */
+    val aiStrategyLevel: Int? = null, // 1:鍒濈骇, 2:涓骇, 3:楂樼骇
+    /** AI鍐崇瓥椋庢牸 */
     @SerialName("ai_style")
-    val aiStyle: Int? = null, // 0:默认, 1:进攻型, 2:防守型
-    /** AI底力 */
+    val aiStyle: Int? = null, // 0:榛樿, 1:杩涙敾鍨? 2:闃插畧鍨?
+    /** AI搴曞姏 */
     @SerialName("ai_base_power")
     val aiBasePower: Float? = null,
-    /** AI熟练度 */
+    /** AI鐔熺粌搴?*/
     @SerialName("ai_experience")
     val aiExperience: Float? = null,
-    /** AI选卡温度 */
+    /** AI閫夊崱娓╁害 */
     @SerialName("ai_temperature")
     val aiTemperature: Float? = null,
-    /** 游戏权重 */
+    /** 娓告垙鏉冮噸 */
     @SerialName("game_weight")
     val gameWeight: HashMap<String, Int>? = null,
-    /** AI作品修正 */
+    /** AI浣滃搧淇 */
     @SerialName("ai_preference")
     val aiPreference: HashMap<String, Int>? = null,
-    /** 自定义等级数量 */
+    /** 鑷畾涔夌瓑绾ф暟閲?*/
     @SerialName("custom_level_count")
     val customLevelCount: Array<Int>? = null,
-    /** 棋盘边长，4x4/5x5/6x6 */
+    /** 妫嬬洏杈归暱锛?x4/5x5/6x6 */
     @SerialName("board_size")
     val boardSize: Int? = null,
-    /** 6x6额外连线数量 */
+    /** 6x6棰濆杩炵嚎鏁伴噺 */
     @SerialName("extra_line_count")
     val extraLineCount: Int? = null,
     @SerialName("hidden_select_threshold_a")
@@ -344,62 +346,65 @@ class RoomConfigNullable(
     val linkStartB: Int? = null,
     @SerialName("link_end_b")
     val linkEndB: Int? = null,
+    @SerialName("custom_card_pool_enabled")
+    val customCardPoolEnabled: Boolean? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
-        rid.isNotEmpty() || throw HandlerException("房间名不能为空")
-        type == null || type in 1..3 || throw HandlerException("不支持的游戏类型")
-        gameTime == null || gameTime in 1..1440 || throw HandlerException("游戏时间的数值不正确")
-        countdown == null || countdown in 0..86400 || throw HandlerException("倒计时的数值不正确")
-        games == null || games.size < 100 || throw HandlerException("选择的作品数太多")
-        ranks == null || ranks.size <= 6 || throw HandlerException("选择的难度数太多")
-        needWin == null || needWin in 1..99 || throw HandlerException("需要胜场的数值不正确")
-        difficulty == null || difficulty in 1..6 || throw HandlerException("难度设置不正确")
-        cdTime == null || cdTime in 0..1440 || throw HandlerException("选卡cd的数值不正确")
-        cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("左侧选手CD修正值范围应为-1440~2880")
-        cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("右侧选手CD修正值范围应为-1440~2880")
-        blindSetting == null || blindSetting in 1..3 || throw HandlerException("盲盒模式设置不正确")
-        spellCardVersion == null || spellCardVersion in 1..10 || throw HandlerException("题库版本选择不正确")
-        dualBoard == null || dualBoard in 0..1 || throw HandlerException("双重模式设置不正确")
-        blindRevealLevel == null || blindRevealLevel in 0..4 || throw HandlerException("盲盒揭示等级应在0~4之间")
-        diffLevel == null || diffLevel in -1..5 || throw HandlerException("盘面差异度等级应在-1~5之间")
-        aiStrategyLevel == null || aiStrategyLevel in 1..3 || throw HandlerException("AI策略难度设置范围应为1~3")
-        aiStyle == null || aiStyle in 0..2 || throw HandlerException("AI决策风格设置范围应为0~2")
-        aiBasePower == null || aiBasePower < 10.1f || throw HandlerException("AI底力设置范围应为1~10")
-        aiExperience == null || aiExperience < 10.1f || throw HandlerException("AI熟练度设置范围应为1~10")
-        gameWeight == null || gameWeight.values.all { it in -2..2 } || throw HandlerException("游戏权重范围为-2~2")
-        aiPreference == null || aiPreference.values.all { it in -2..2 } ||
-            throw HandlerException("AI作品修正数值范围应为-2~2")
-        customLevelCount == null || customLevelCount.size == 11 || throw HandlerException("自定义等级数据格式错误")
-        boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
-        type == null || boardSize == null || type != 2 || boardSize == 5 || throw HandlerException("BP赛仅支持5x5棋盘")
-        type == null || blindSetting == null || type != 3 || blindSetting == 1 || throw HandlerException("Link赛不支持盲盒模式")
-        type == null || dualBoard == null || type != 3 || dualBoard == 0 || throw HandlerException("Link赛不支持双盘模式")
-        type == null || difficulty == null || type != 3 || difficulty in 1..3 ||
-            throw HandlerException("Link赛仅支持低/中/高难度")
-        extraLineCount == null || extraLineCount in 0..4 || throw HandlerException("额外连线数量应为0~4")
-        hiddenSelectThresholdA == null || boardSize == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
-            throw HandlerException("左侧隐藏阈值应在1~${boardSize * boardSize}之间")
-        hiddenSelectThresholdB == null || boardSize == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
-            throw HandlerException("右侧隐藏阈值应在1~${boardSize * boardSize}之间")
+        rid.isNotEmpty() || throw HandlerException("room id is empty")
+        type == null || type in 1..3 || throw HandlerException("unsupported game type")
+        gameTime == null || gameTime in 1..1440 || throw HandlerException("invalid game time")
+        countdown == null || countdown in 0..86400 || throw HandlerException("invalid countdown")
+        games == null || games.size < 100 || throw HandlerException("too many games")
+        ranks == null || ranks.size <= 6 || throw HandlerException("too many ranks")
+        needWin == null || needWin in 1..99 || throw HandlerException("invalid need_win")
+        difficulty == null || difficulty in 1..6 || throw HandlerException("invalid difficulty")
+        cdTime == null || cdTime in 0..1440 || throw HandlerException("invalid cd_time")
+        cdModifierA == null || cdModifierA in -1440..2880 || throw HandlerException("invalid cd_modifier_a")
+        cdModifierB == null || cdModifierB in -1440..2880 || throw HandlerException("invalid cd_modifier_b")
+        blindSetting == null || blindSetting in 1..3 || throw HandlerException("invalid blind setting")
+        spellCardVersion == null || spellCardVersion in 1..10 || throw HandlerException("invalid spell version")
+        dualBoard == null || dualBoard in 0..1 || throw HandlerException("invalid dual board setting")
+        blindRevealLevel == null || blindRevealLevel in 0..4 || throw HandlerException("invalid blind reveal level")
+        diffLevel == null || diffLevel in -1..5 || throw HandlerException("invalid diff level")
+        aiStrategyLevel == null || aiStrategyLevel in 1..3 || throw HandlerException("invalid ai strategy level")
+        aiStyle == null || aiStyle in 0..2 || throw HandlerException("invalid ai style")
+        aiBasePower == null || aiBasePower < 10.1f || throw HandlerException("invalid ai base power")
+        aiExperience == null || aiExperience < 10.1f || throw HandlerException("invalid ai experience")
+        gameWeight == null || gameWeight.values.all { it in -2..2 } || throw HandlerException("invalid game weight")
+        aiPreference == null || aiPreference.values.all { it in -2..2 } || throw HandlerException("invalid ai preference")
+        customLevelCount == null || customLevelCount.size == 11 || throw HandlerException("invalid custom level count")
         customLevelCount == null || boardSize == null || customLevelCount.all { it in 0..(boardSize * boardSize) } ||
-            throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
+            throw HandlerException("invalid custom level count")
+        boardSize == null || boardSize in 4..6 || throw HandlerException("invalid board size")
+        type == null || boardSize == null || type != 2 || boardSize == 5 || throw HandlerException("BP only supports 5x5 board")
+        type == null || blindSetting == null || type != 3 || blindSetting == 1 ||
+            throw HandlerException("Link does not support blind mode")
+        type == null || dualBoard == null || type != 3 || dualBoard == 0 ||
+            throw HandlerException("Link does not support dual board")
+        type == null || difficulty == null || type != 3 || difficulty in 1..3 ||
+            throw HandlerException("Link only supports E/N/L difficulty")
+        extraLineCount == null || extraLineCount in 0..4 || throw HandlerException("invalid extra line count")
+        hiddenSelectThresholdA == null || boardSize == null || hiddenSelectThresholdA in 1..(boardSize * boardSize) ||
+            throw HandlerException("invalid hidden threshold a")
+        hiddenSelectThresholdB == null || boardSize == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
+            throw HandlerException("invalid hidden threshold b")
         portalCount == null || boardSize == null || portalCount in 1..(boardSize * boardSize) ||
-            throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
+            throw HandlerException("invalid portal count")
         linkLevelCoefficient == null || linkLevelCoefficient in 0.0..100.0 ||
-            throw HandlerException("Link赛等级系数范围应为0~100")
+            throw HandlerException("invalid link level coefficient")
         linkFastestCoefficient == null || linkFastestCoefficient in 0.0..10.0 ||
-            throw HandlerException("Link赛时长系数范围应为0~100")
+            throw HandlerException("invalid link fastest coefficient")
         linkConnectivity == null || linkConnectivity == 4 || linkConnectivity == 8 ||
-            throw HandlerException("Link赛连接规则只能为四向或八向")
+            throw HandlerException("invalid link connectivity")
         val boardArea = boardSize?.let { it * it }
         linkDisabledIdx == null || boardArea == null || linkDisabledIdx.all { it in 0 until boardArea } ||
-            throw HandlerException("Link赛禁用格超出棋盘范围")
+            throw HandlerException("link disabled index out of board")
         linkDisabledIdx == null || linkDisabledIdx.distinct().size == linkDisabledIdx.size ||
-            throw HandlerException("Link赛禁用格不能重复")
+            throw HandlerException("duplicate link disabled index")
         listOf(linkStartA, linkEndA, linkStartB, linkEndB)
             .filterNotNull()
             .all { boardArea == null || it in 0 until boardArea } ||
-            throw HandlerException("Link赛起点/终点超出棋盘范围")
+            throw HandlerException("link endpoint out of board")
     }
 }

@@ -71,12 +71,28 @@ object RoomTypeBP : RoomType {
         customSettings: IntArray?
     ): Array<Spell> {
         val mode = if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
-        return SpellFactory.drawSpells(
-            mode, spellCardVersion, games, ranks, difficulty,
+        val stars = SpellFactory.buildStarArray(
+            mode,
+            difficulty,
             bpLv1Count = when (difficulty) {
                 1, 2 -> 10
                 else -> 5
-            }
+            },
+            boardSize = boardSize,
+        )
+        return SpellFactory.drawSpellsWithStar(mode, spellCardVersion, games, ranks, stars, boardSize)
+    }
+
+    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, customSettings: IntArray?): IntArray {
+        val mode = if (difficulty != null && difficulty >= 4) DifficultyMode.BP_OD else DifficultyMode.BP
+        return SpellFactory.buildStarArray(
+            mode,
+            difficulty,
+            bpLv1Count = when (difficulty) {
+                1, 2 -> 10
+                else -> 5
+            },
+            boardSize = boardSize,
         )
     }
 

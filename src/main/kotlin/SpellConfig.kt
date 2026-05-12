@@ -132,6 +132,25 @@ object SpellConfig {
         return map
     }
 
+    private fun buildSpellMapFromSpells(
+        source: Array<Spell>,
+        games: Array<String>,
+        ranks: Array<String>?,
+        rand: Random
+    ): HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>> {
+        val map = HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>()
+        source
+            .filter { it.game in games && (ranks == null || it.rank in ranks) }
+            .shuffled(rand)
+            .forEach { spell ->
+                map.getOrPut(spell.star) { hashMapOf() }
+                    .getOrPut(spell.rank != "L") { hashMapOf() }
+                    .getOrPut(spell.game) { LinkedList() }
+                    .add(spell)
+            }
+        return map
+    }
+
     private fun buildWeightMaps(
         map: HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>,
         maxStar: Int
@@ -219,7 +238,30 @@ object SpellConfig {
         priorityIndices: Set<Int> = emptySet(),
         priorityStars: Set<Int> = emptySet(),
     ): Array<Spell> {
-        val map = buildSpellMap(type, fileId, games, ranks, rand)
+        return drawFromMap(
+            buildSpellMap(type, fileId, games, ranks, rand),
+            exPos,
+            stars,
+            rand,
+            upgrades,
+            maxWeightStar,
+            exDrawStar,
+            priorityIndices,
+            priorityStars
+        )
+    }
+
+    private fun drawFromMap(
+        map: HashMap<Int, HashMap<Boolean, HashMap<String, LinkedList<Spell>>>>,
+        exPos: IntArray,
+        stars: IntArray,
+        rand: Random,
+        upgrades: List<UpgradeRule> = NO_UPGRADES,
+        maxWeightStar: Int = 6,
+        exDrawStar: Int = 6,
+        priorityIndices: Set<Int> = emptySet(),
+        priorityStars: Set<Int> = emptySet(),
+    ): Array<Spell> {
         val spellIds = HashSet<String>()
         val result = arrayOfNulls<Spell>(stars.size)
         val weightMaps = buildWeightMaps(map, maxWeightStar)
@@ -293,6 +335,22 @@ object SpellConfig {
         constructRollCache(map)
         return result.filterNotNull().toTypedArray()
     }
+
+    fun getFromCustomPool(
+        source: Array<Spell>,
+        games: Array<String>,
+        ranks: Array<String>?,
+        exPos: IntArray,
+        stars: IntArray,
+        rand: Random,
+        priorityIndices: Set<Int> = emptySet(),
+    ): Array<Spell> = drawFromMap(
+        buildSpellMapFromSpells(source, games, ranks, rand),
+        exPos,
+        stars,
+        rand,
+        priorityIndices = priorityIndices
+    )
 
     // ---- Public API (thin wrappers over draw) ----
 

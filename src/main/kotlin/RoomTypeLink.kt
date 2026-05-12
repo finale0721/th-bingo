@@ -65,6 +65,15 @@ object RoomTypeLink : RoomType {
         )
     }
 
+    override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, customSettings: IntArray?): IntArray {
+        return SpellFactory.buildStarArray(
+            DifficultyMode.LINK,
+            difficulty,
+            difficultyObj = linkDifficulty(difficulty),
+            boardSize = boardSize,
+        )
+    }
+
     private fun linkDifficulty(difficulty: Int?): Difficulty = when (difficulty) {
         1 -> Difficulty.E
         2 -> Difficulty.N

@@ -19,17 +19,42 @@ sealed interface RoomType {
         while (true) {
             try {
                 if (stars == null) {
-                    room.spells = room.type.randSpells(
-                        room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, boardSize,
+                    val starArray = room.type.rollSpellsStarArray(
+                        room.roomConfig.difficulty,
+                        boardSize,
                         room.roomConfig.customLevelCount.toIntArray()
                     )
+                    room.spells = if (room.roomConfig.customCardPoolEnabled) {
+                        SpellFactory.drawCustomPoolSpellsWithStar(
+                            room.customCardPool,
+                            room.roomConfig.games,
+                            room.roomConfig.ranks,
+                            starArray,
+                            boardSize
+                        )
+                    } else {
+                        room.type.randSpellsWithStar(
+                            room.roomConfig.spellCardVersion, room.roomConfig.games,
+                            room.roomConfig.ranks, room.roomConfig.difficulty, starArray, boardSize,
+                            room.roomConfig.customLevelCount.toIntArray()
+                        )
+                    }
                 } else {
-                    room.spells = room.type.randSpellsWithStar(
-                        room.roomConfig.spellCardVersion, room.roomConfig.games,
-                        room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize,
-                        room.roomConfig.customLevelCount.toIntArray()
-                    )
+                    room.spells = if (room.roomConfig.customCardPoolEnabled) {
+                        SpellFactory.drawCustomPoolSpellsWithStar(
+                            room.customCardPool,
+                            room.roomConfig.games,
+                            room.roomConfig.ranks,
+                            stars,
+                            boardSize
+                        )
+                    } else {
+                        room.type.randSpellsWithStar(
+                            room.roomConfig.spellCardVersion, room.roomConfig.games,
+                            room.roomConfig.ranks, room.roomConfig.difficulty, stars, boardSize,
+                            room.roomConfig.customLevelCount.toIntArray()
+                        )
+                    }
                 }
                 break
             } catch (e: HandlerException) {
