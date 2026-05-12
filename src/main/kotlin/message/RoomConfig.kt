@@ -93,7 +93,7 @@ class RoomConfig(
     /** Link赛等级系数X */
     @SerialName("link_level_coefficient")
     val linkLevelCoefficient: Double = 2.0,
-    /** Link赛补偿系数Y，乘以fastest字段 */
+    /** Link赛时长系数Y，乘以fastest字段 */
     @SerialName("link_fastest_coefficient")
     val linkFastestCoefficient: Double = 1.0,
     /** Link赛连接规则，4=四向，8=八向 */
@@ -151,7 +151,7 @@ class RoomConfig(
         hiddenSelectThresholdB == null || hiddenSelectThresholdB in 1..(boardSize * boardSize) ||
             throw HandlerException("右侧隐藏阈值应在1~${boardSize * boardSize}之间")
         linkLevelCoefficient in 0.0..100.0 || throw HandlerException("Link赛等级系数范围应为0~100")
-        linkFastestCoefficient in 0.0..100.0 || throw HandlerException("Link赛补偿系数范围应为0~100")
+        linkFastestCoefficient in 0.0..10.0 || throw HandlerException("Link赛时长系数范围应为0~10")
         linkConnectivity == 4 || linkConnectivity == 8 || throw HandlerException("Link赛连接规则只能为四向或八向")
         val boardArea = boardSize * boardSize
         val linkEndpoints = listOf(linkStartA, linkEndA, linkStartB, linkEndB)
@@ -388,8 +388,8 @@ class RoomConfigNullable(
             throw HandlerException("传送门数量应在1~${boardSize * boardSize}之间")
         linkLevelCoefficient == null || linkLevelCoefficient in 0.0..100.0 ||
             throw HandlerException("Link赛等级系数范围应为0~100")
-        linkFastestCoefficient == null || linkFastestCoefficient in 0.0..100.0 ||
-            throw HandlerException("Link赛补偿系数范围应为0~100")
+        linkFastestCoefficient == null || linkFastestCoefficient in 0.0..10.0 ||
+            throw HandlerException("Link赛时长系数范围应为0~100")
         linkConnectivity == null || linkConnectivity == 4 || linkConnectivity == 8 ||
             throw HandlerException("Link赛连接规则只能为四向或八向")
         val boardArea = boardSize?.let { it * it }
