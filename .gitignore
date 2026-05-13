@@ -5,6 +5,7 @@ application.properties
 /.gradle/
 /.kotlin/
 /log/
+/data/
 
 spellcard_version.txt
 
