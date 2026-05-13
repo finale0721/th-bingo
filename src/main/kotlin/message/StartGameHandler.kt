@@ -10,6 +10,7 @@ import org.tfcc.bingo.Dispatcher
 import org.tfcc.bingo.GameLogger
 import org.tfcc.bingo.RequestHandler
 import org.tfcc.bingo.Spell
+import org.tfcc.bingo.admin.CustomPoolStore
 import org.tfcc.bingo.decode
 import org.tfcc.bingo.encode
 import org.tfcc.bingo.push
@@ -56,6 +57,13 @@ object StartGameHandler : RequestHandler {
 
     private fun readCustomPool(data: JsonElement?): Array<Spell>? {
         val obj = data?.jsonObject ?: return null
+
+        val poolMd5 = obj["custom_pool_md5"]?.jsonPrimitive?.contentOrNull
+        if (!poolMd5.isNullOrBlank()) {
+            return CustomPoolStore.getPoolSpells(poolMd5)
+                ?: throw HandlerException("在线卡池不存在或已过期")
+        }
+
         val compressed = obj["custom_card_pool_compressed"]?.jsonPrimitive?.contentOrNull
         if (!compressed.isNullOrBlank()) {
             val bytes = Base64.getDecoder().decode(compressed)

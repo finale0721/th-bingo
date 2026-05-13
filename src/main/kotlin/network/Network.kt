@@ -8,12 +8,14 @@ import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioServerSocketChannel
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.admin.AdminAuthStore
+import org.tfcc.bingo.admin.CustomPoolStore
 import org.tfcc.bingo.admin.GameRecordStore
 
 object Network {
     fun onInit() {
         GameRecordStore.ensureStorage()
         AdminAuthStore.ensureStorage()
+        CustomPoolStore.ensureStorage()
         initGameNetwork()
     }
 

@@ -93,6 +93,10 @@ private val handlers = mapOf(
     "get_room_list" to GetRoomListHandler,
     "get_xlsx_data" to GetXlsxDataHandler,
     "start_custom_game" to StartCustomGameHandler,
+    "upload_custom_pool" to UploadCustomPoolHandler,
+    "list_custom_pools" to ListCustomPoolsHandler,
+    "get_custom_pool" to GetCustomPoolHandler,
+    "delete_custom_pool" to DeleteCustomPoolHandler,
 )
 
 inline fun <reified T> JsonElement.decode(): T = Dispatcher.json.decodeFromJsonElement(this)
