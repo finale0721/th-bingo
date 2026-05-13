@@ -128,7 +128,8 @@ class LinkAIAgent(private val room: Room) {
         }
         val start = linkData.startMsB.takeIf { it > 0L } ?: System.currentTimeMillis()
         linkData.startMsB = start
-        linkData.endMsB = start + virtualUsedMs
+        val totalCd = (route.size - 1).coerceAtLeast(0) * room.actualCdTime[aiPlayerIndex].coerceAtLeast(0L)
+        linkData.endMsB = start + virtualUsedMs + totalCd
         linkData.lastGetTimeB = linkData.endMsB
         linkData.eventB = 3
         currentTask = null
