@@ -496,7 +496,7 @@ class AIAgent(private val room: Room) {
     private fun findBestTargetAdvanced(): Int {
         val boardState = getBoardState()
         val humanScore = boardState.count { it == PlayerState.HUMAN }
-        val isOpponentVisible = humanScore < 5
+        val isOpponentVisible = humanScore < (room.roomConfig.hiddenSelectThresholdA ?: 5)
         val initiative = calculateInitiativeState()
         val temperature = max(room.roomConfig.aiTemperature, 0f)
 
