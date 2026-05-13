@@ -373,8 +373,12 @@ object SpellFactory {
     /**
      * Build a star array for LINK mode.
      *
-     * The 5x5 layout follows the legacy Link rule:
-     * starts are 1-star, the four inner diagonal cells are 4-star, and the center is 5-star.
+     * Start points are forced to 1-star and consume the level-1 quota
+     * (cascading to higher levels when the quota is exhausted).
+     *
+     * When custom start/end points are set the 4/5-star placement uses a
+     * balanced, center-first ordering similar to even-sized boards so that
+     * displaced high stars stay close to the middle and are evenly spread.
      */
     @Throws(HandlerException::class)
     fun buildLinkStarArray(difficulty: Difficulty, boardSize: Int, starts: Set<Int>? = null): IntArray {
@@ -382,16 +386,32 @@ object SpellFactory {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
         val area = board.area
+        val defaultStarts = setOf(board.index(0, 0), board.index(0, board.size - 1))
         val startSet = starts
             ?.filter { board.isValidIndex(it) }
             ?.toSet()
-            ?: setOf(board.index(0, 0), board.index(0, board.size - 1))
+            ?: defaultStarts
         val highCount = board.size
 
         val fixed = mutableMapOf<Int, Int>()
         startSet.forEach { fixed[it] = 1 }
 
-        val highPriority = linkHighPriority(board, rand).filter { it !in startSet }
+        // Start points consume the level-1 quota, cascading to level 2 / 3.
+        val adjustedLv = lvCount.copyOf()
+        var deduct = startSet.size
+        for (i in adjustedLv.indices) {
+            val take = minOf(adjustedLv[i], deduct)
+            adjustedLv[i] -= take
+            deduct -= take
+            if (deduct == 0) break
+        }
+
+        val isCustomStarts = starts != null && startSet != defaultStarts
+        val highPriority = (if (isCustomStarts) {
+            linkCustomStartHighPriority(board, rand)
+        } else {
+            linkHighPriority(board, rand)
+        }).filter { it !in startSet }
         val fivePos = highPriority.firstOrNull() ?: (0 until area).first { it !in startSet }
         fixed[fivePos] = 5
         val centerHighLimit = if (board.size % 2 == 0) 3 else Int.MAX_VALUE
@@ -406,7 +426,7 @@ object SpellFactory {
         }
 
         val remainingCount = area - fixed.size
-        val lowStars = (IntArray(lvCount[0]) { 1 } + IntArray(lvCount[1]) { 2 } + IntArray(lvCount[2]) { 3 })
+        val lowStars = (IntArray(adjustedLv[0]) { 1 } + IntArray(adjustedLv[1]) { 2 } + IntArray(adjustedLv[2]) { 3 })
             .toMutableList()
         while (lowStars.size < remainingCount) lowStars.add(3)
         lowStars.shuffle(rand)
@@ -427,6 +447,27 @@ object SpellFactory {
         if (board.size % 2 == 0) return linkEvenHighPriority(board, rand)
         return (0 until board.area)
             .sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+    }
+
+    /**
+     * Balanced high-priority ordering used when custom start points may
+     * displace normal 4/5-star positions.  Mirrors even-board logic:
+     * center first, then inner ring (sector-balanced for 7×7+), then outer ring.
+     */
+    private fun linkCustomStartHighPriority(board: BoardSpec, rand: Random): List<Int> {
+        if (board.size % 2 == 0) return linkEvenHighPriority(board, rand)
+        val center = board.centerIndices().shuffled(rand)
+        val centerSet = center.toSet()
+        val innerRing = board.innerIndices().filter { it !in centerSet }
+        val balancedRing = if (board.size >= 7) {
+            balancedLinkRing(board, innerRing, rand)
+        } else {
+            innerRing.sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+        }
+        val outer = (0 until board.area)
+            .filter { it !in centerSet && it !in innerRing }
+            .sortedWith(compareBy<Int> { centerDistance2(board, it) }.thenBy { rand.nextInt() })
+        return center + balancedRing + outer
     }
 
     private fun linkEvenHighPriority(board: BoardSpec, rand: Random): List<Int> {

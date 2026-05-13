@@ -67,6 +67,23 @@ object RoomTypeLink : RoomType {
         )
     }
 
+    override fun randSpellsWithStar(
+        spellCardVersion: Int,
+        games: Array<String>,
+        ranks: Array<String>,
+        difficulty: Int?,
+        stars: IntArray?,
+        boardSize: Int,
+        customSettings: IntArray?
+    ): Array<Spell> {
+        if (stars == null) {
+            return randSpells(spellCardVersion, games, ranks, difficulty, boardSize, customSettings)
+        }
+        return SpellFactory.drawSpellsWithStar(
+            DifficultyMode.LINK, spellCardVersion, games, ranks, stars, boardSize, customSettings
+        )
+    }
+
     override fun rollSpellsStarArray(difficulty: Int?, boardSize: Int, customSettings: IntArray?): IntArray {
         return SpellFactory.buildStarArray(
             DifficultyMode.LINK,
