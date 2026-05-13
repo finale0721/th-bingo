@@ -27,7 +27,10 @@ class LinkAIAgent(private val room: Room) {
     @Volatile
     private var speedrunRequested = false
 
+    private var wasTakeoverActive = false
+
     fun start() {
+        wasTakeoverActive = false
         initializeGridModels()
         executor.scheduleAtFixedRate(this::tick, 0, 500, TimeUnit.MILLISECONDS)
     }
@@ -45,6 +48,16 @@ class LinkAIAgent(private val room: Room) {
         try {
             if (!room.started || room.linkData == null || room.spells == null) return
             if (room.phase == 1) {
+                val takeoverActive = room.linkData!!.takeoverPlayerIndex == aiPlayerIndex
+                if (takeoverActive) {
+                    wasTakeoverActive = true
+                    return
+                }
+                if (wasTakeoverActive) {
+                    wasTakeoverActive = false
+                    onTakeoverReleased()
+                    return
+                }
                 ensureRoute()
                 return
             }
@@ -68,6 +81,45 @@ class LinkAIAgent(private val room: Room) {
         val route = findBestRoute()
         val currentRoute = linkData.linkIdxB
         route.drop(currentRoute.size).forEach { RoomTypeLink.appendRoute(room, aiPlayerIndex, it) }
+        RoomTypeLink.confirmRoute(room, aiPlayerIndex, true)
+    }
+
+    private fun onTakeoverReleased() {
+        val linkData = room.linkData ?: return
+        linkData.routeConfirmedB = false
+        val route = linkData.linkIdxB
+        if (route.isEmpty()) {
+            ensureRoute()
+            return
+        }
+        val end = room.roomConfig.linkEndB
+        val disabled = linkData.disabledIdx.toSet() + room.roomConfig.linkDisabledIdx.toSet()
+
+        var lastReachableIdx = -1
+        for (i in route.indices) {
+            val blocked = disabled + route.subList(0, i).toSet()
+            if (isReachable(route[i], end, blocked)) {
+                lastReachableIdx = i
+            }
+        }
+
+        if (lastReachableIdx < 0) {
+            route.clear()
+            RoomTypeLink.recalculateScoresAndPush(room, logSpeedrun = false)
+            ensureRoute()
+            return
+        }
+
+        val prefix = ArrayList(route.subList(0, lastReachableIdx + 1))
+        val start = route[lastReachableIdx]
+        val blocked = disabled + prefix.subList(0, prefix.size - 1).toSet()
+        val bestFromHere = findBestRoute(start, end, blocked)
+
+        route.clear()
+        route.addAll(prefix.subList(0, prefix.size - 1))
+        route.addAll(bestFromHere)
+
+        RoomTypeLink.recalculateScoresAndPush(room, logSpeedrun = false)
         RoomTypeLink.confirmRoute(room, aiPlayerIndex, true)
     }
 
@@ -219,6 +271,10 @@ class LinkAIAgent(private val room: Room) {
         val start = room.roomConfig.linkStartB
         val end = room.roomConfig.linkEndB
         val disabled = room.linkData?.disabledIdx?.toSet() ?: room.roomConfig.linkDisabledIdx.toSet()
+        return findBestRoute(start, end, disabled)
+    }
+
+    private fun findBestRoute(start: Int, end: Int, disabled: Set<Int>): List<Int> {
         data class Candidate(val path: List<Int>, val score: Double)
         var beam = listOf(Candidate(listOf(start), cellValue(start)))
         val finished = mutableListOf<Candidate>()
