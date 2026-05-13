@@ -7,7 +7,6 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.tfcc.bingo.Dispatcher
 import org.tfcc.bingo.RequestHandler
 import org.tfcc.bingo.admin.CustomPoolStore
 import org.tfcc.bingo.encode

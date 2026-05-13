@@ -13,7 +13,11 @@ import java.util.concurrent.Executors
 
 private val verbosePayloadActions = setOf("upload_custom_pool", "get_xlsx_data", "get_custom_pool")
 
-private fun ChannelHandlerContext.writeMessage(message: ResponseMessage, writeLog: Boolean = true, action: String? = null): ChannelFuture {
+private fun ChannelHandlerContext.writeMessage(
+    message: ResponseMessage,
+    writeLog: Boolean = true,
+    action: String? = null
+): ChannelFuture {
     val text = Dispatcher.json.encodeToString(message)
     if (writeLog) {
         val logText = if (action in verbosePayloadActions) "action=$action, size=${text.length}" else text
