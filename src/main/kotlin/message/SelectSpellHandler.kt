@@ -13,8 +13,13 @@ object SelectSpellHandler : RequestHandler {
         val room = player.room ?: throw HandlerException("不在房间里")
         room.boardSpec.isValidIndex(idx) || throw HandlerException("idx超出范围")
         room.started || throw HandlerException("游戏还没开始")
-        val playerIndex = room.players.indexOf(player)
-        playerIndex >= 0 || throw HandlerException("没有权限")
+        val playerIndex = if (room.type is RoomTypeLink) {
+            RoomTypeLink.routeOpPlayerIndex(room, player)
+        } else {
+            val pi = room.players.indexOf(player)
+            pi >= 0 || throw HandlerException("没有权限")
+            pi
+        }
         room.type.handleSelectSpell(room, playerIndex, idx)
         room.type.pushSpells(room, idx, player.name)
         return null

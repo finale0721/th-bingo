@@ -74,6 +74,9 @@ class LinkData {
     @SerialName("disabled_idx")
     var disabledIdx = ArrayList<Int>()
 
+    @SerialName("takeover_player_index")
+    var takeoverPlayerIndex: Int = -1
+
     fun ensureStatusSize(area: Int) {
         while (statusA.size < area) statusA.add(0)
         while (statusB.size < area) statusB.add(0)
@@ -106,6 +109,7 @@ class LinkData {
         cloned.scoreA = scoreA
         cloned.scoreB = scoreB
         cloned.disabledIdx.addAll(disabledIdx)
+        cloned.takeoverPlayerIndex = takeoverPlayerIndex
         return cloned
     }
 }

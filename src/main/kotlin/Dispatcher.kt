@@ -85,6 +85,8 @@ private val handlers = mapOf(
     "link_set_skip_used" to LinkSetSkipUsedHandler,
     "link_set_phase" to LinkSetPhaseHandler,
     "link_ai_speedrun" to LinkAiSpeedrunHandler,
+    "link_takeover_route" to LinkTakeoverRouteHandler,
+    "link_release_takeover" to LinkReleaseTakeoverHandler,
     "normal_dual_board_change" to NormalDualBoardChangeHandler,
     "refresh_one_spell" to RefreshSpellHandler,
     "print_log" to PrintLogHandler,
@@ -102,6 +104,7 @@ object Dispatcher {
 
     val json = Json {
         ignoreUnknownKeys = true
+        encodeDefaults = true
     }
 
     fun handle(ctx: ChannelHandlerContext, text: String) {

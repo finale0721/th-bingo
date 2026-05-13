@@ -118,6 +118,21 @@ object RoomTypeLink : RoomType {
         }
     }
 
+    fun routeOpPlayerIndex(room: Room, player: Player): Int {
+        val takeover = room.linkData?.takeoverPlayerIndex ?: -1
+        if (takeover < 0) {
+            val idx = room.players.indexOf(player)
+            idx >= 0 || throw HandlerException("找不到对应玩家")
+            return idx
+        }
+        val ownIdx = room.players.indexOf(player)
+        if (ownIdx == takeover) throw HandlerException("路线已被接管，无法操作")
+        val isController = room.isHost(player) || (room.host == null && room.players[0] === player)
+        if (isController) return takeover
+        ownIdx >= 0 || throw HandlerException("找不到对应玩家")
+        return ownIdx
+    }
+
     fun appendRoute(room: Room, playerIndex: Int, spellIndex: Int) {
         room.phase == 1 || throw HandlerException("不在路线构筑阶段")
         val linkData = room.linkData!!
@@ -166,6 +181,7 @@ object RoomTypeLink : RoomType {
     fun startRun(room: Room) {
         room.phase = 2
         val linkData = room.linkData!!
+        linkData.takeoverPlayerIndex = -1
         completeRouteIfNeeded(room, 0)
         completeRouteIfNeeded(room, 1)
         linkData.routeConfirmedA = true
@@ -286,6 +302,21 @@ object RoomTypeLink : RoomType {
         updateScores(room)
         pushLinkData(room)
         room.gameLogger?.logLinkAction(room, playerIndex, "link_undo_finish", idx)
+    }
+
+    fun takeoverRoute(room: Room, targetPlayerIndex: Int) {
+        room.phase == 1 || throw HandlerException("不在路线构筑阶段")
+        val linkData = room.linkData!!
+        linkData.takeoverPlayerIndex = targetPlayerIndex
+        pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, targetPlayerIndex, "link_takeover_route")
+    }
+
+    fun releaseTakeover(room: Room) {
+        val linkData = room.linkData ?: return
+        linkData.takeoverPlayerIndex = -1
+        pushLinkData(room)
+        room.gameLogger?.logLinkAction(room, -1, "link_release_takeover")
     }
 
     fun setSkipUsedPublic(room: Room, playerIndex: Int, value: Int) {
