@@ -11,9 +11,14 @@ import org.tfcc.bingo.message.*
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-private fun ChannelHandlerContext.writeMessage(message: ResponseMessage, writeLog: Boolean = true): ChannelFuture {
+private val verbosePayloadActions = setOf("upload_custom_pool", "get_xlsx_data", "get_custom_pool")
+
+private fun ChannelHandlerContext.writeMessage(message: ResponseMessage, writeLog: Boolean = true, action: String? = null): ChannelFuture {
     val text = Dispatcher.json.encodeToString(message)
-    if (writeLog) Dispatcher.logger.debug("返回${channel().id().asShortText()}：$text")
+    if (writeLog) {
+        val logText = if (action in verbosePayloadActions) "action=$action, size=${text.length}" else text
+        Dispatcher.logger.debug("返回${channel().id().asShortText()}：$logText")
+    }
     return writeAndFlush(TextWebSocketFrame(text))
 }
 
@@ -117,8 +122,10 @@ object Dispatcher {
             val m = json.parseToJsonElement(text).jsonObject
             echo = m["echo"]
             val action = m["action"]!!.jsonPrimitive.content
-            if (action != "heart")
-                logger.debug("收到${ctx.channel().id().asShortText()}：$text")
+            if (action != "heart") {
+                val logText = if (action in verbosePayloadActions) "action=$action, size=${text.length}" else text
+                logger.debug("收到${ctx.channel().id().asShortText()}：$logText")
+            }
             val data = m["data"]
             pool.submit {
                 try {
@@ -160,7 +167,7 @@ object Dispatcher {
                     player.room?.lastOperateMs = now // 对于离开房间类协议，在执行之前需要修改
                     val response = handler.handle(ctx, player, data)
                     player.room?.lastOperateMs = now // 对于加入房间类协议，在执行之后需要修改
-                    ctx.writeMessage(ResponseMessage(0, "ok", response, echo))
+                    ctx.writeMessage(ResponseMessage(0, "ok", response, echo), action = action)
                 } catch (e: IllegalArgumentException) {
                     logger.error("illegal json", e)
                     ctx.writeMessage(ResponseMessage(400, "illegal json", null, echo))
