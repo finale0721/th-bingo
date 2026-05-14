@@ -42,16 +42,16 @@ object SpellConfig {
     const val BP_GAME = 2
 
     /** Standard game: no upgrade rules */
-    private val NO_UPGRADES = emptyList<UpgradeRule>()
+    val NO_UPGRADES = emptyList<UpgradeRule>()
 
     /** OD game: star=7 → try 5★ (fallback 6→3), star=6 → try 4★ (fallback 3) */
-    private val OD_UPGRADES = listOf(
+    val OD_UPGRADES = listOf(
         UpgradeRule(placeholderStar = 7, targetStar = 5, fallbackStar = 3, drawPriority = true),
         UpgradeRule(placeholderStar = 6, targetStar = 4, fallbackStar = 3, drawPriority = true),
     )
 
     /** BPOD game: star=13 → try 3★ (fallback 2) */
-    private val BPOD_UPGRADES = listOf(
+    val BPOD_UPGRADES = listOf(
         UpgradeRule(placeholderStar = 13, targetStar = 3, fallbackStar = 2, drawPriority = false),
     )
 
@@ -344,12 +344,20 @@ object SpellConfig {
         stars: IntArray,
         rand: Random,
         priorityIndices: Set<Int> = emptySet(),
+        upgrades: List<UpgradeRule> = NO_UPGRADES,
+        priorityStars: Set<Int> = emptySet(),
+        maxWeightStar: Int = 6,
+        exDrawStar: Int = 6,
     ): Array<Spell> = drawFromMap(
         buildSpellMapFromSpells(source, games, ranks, rand),
         exPos,
         stars,
         rand,
-        priorityIndices = priorityIndices
+        upgrades,
+        maxWeightStar,
+        exDrawStar,
+        priorityIndices,
+        priorityStars
     )
 
     // ---- Public API (thin wrappers over draw) ----

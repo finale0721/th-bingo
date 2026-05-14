@@ -667,9 +667,37 @@ object SpellFactory {
     ): Array<Spell> {
         val rand = ThreadLocalRandom.current().asKotlinRandom()
         val board = BoardSpec(boardSize)
-        val exPos = ranksToExPos(ranks, rand, board)
+        val exPos = if (mode == DifficultyMode.CUSTOM) {
+            ranksToExPosCustom(
+                ranks, rand,
+                customSettings ?: throw HandlerException("自定义等级数据格式错误"),
+                board
+            )
+        } else {
+            ranksToExPos(ranks, rand, board)
+        }
         val priorityIndices = fixedHighLevelIndices(mode, stars, board, customSettings)
-        return SpellConfig.getFromCustomPool(customPool, games, ranks, exPos, stars, rand, priorityIndices)
+
+        return when (mode) {
+            DifficultyMode.NORMAL,
+            DifficultyMode.CUSTOM,
+            DifficultyMode.OD -> SpellConfig.getFromCustomPool(
+                customPool, games, ranks, exPos, stars, rand, priorityIndices,
+                upgrades = SpellConfig.OD_UPGRADES,
+                priorityStars = setOf(4, 5),
+            )
+            DifficultyMode.LINK -> SpellConfig.getFromCustomPool(
+                customPool, games, ranks, exPos, stars, rand, priorityIndices,
+            )
+            DifficultyMode.BP,
+            DifficultyMode.BP_OD -> SpellConfig.getFromCustomPool(
+                customPool, games, ranks, exPos, stars, rand, priorityIndices,
+                upgrades = SpellConfig.BPOD_UPGRADES,
+                priorityStars = setOf(3),
+                maxWeightStar = 4,
+                exDrawStar = 4,
+            )
+        }
     }
 
     // ---- Legacy public API (delegates to unified methods) ----
