@@ -5,10 +5,10 @@ import kotlinx.serialization.json.JsonElement
 import org.tfcc.bingo.GameLogger
 import org.tfcc.bingo.Player
 import org.tfcc.bingo.RequestHandler
+import org.tfcc.bingo.SpellStatusConverter
 import org.tfcc.bingo.decode
 import org.tfcc.bingo.encode
 import org.tfcc.bingo.push
-import org.tfcc.bingo.toSpellStatus
 import kotlin.random.Random
 
 object StartCustomGameHandler : RequestHandler {
@@ -21,6 +21,11 @@ object StartCustomGameHandler : RequestHandler {
         val msg = data!!.decode<StartCustomGameMessage>()
         msg.validate()
         msg.roomConfig.validate()
+        val spellStatusInts = SpellStatusConverter.convertStatuses(
+            msg.spellStatus,
+            msg.spellStatusVersion,
+            msg.roomConfig.blindSetting,
+        ).toIntArray()
 
         // Apply the new roomConfig first so that boardSpec/boardArea reflect the new board size
         room.type.resetData(room)
@@ -54,9 +59,8 @@ object StartCustomGameHandler : RequestHandler {
         room.normalData = NormalData.create(room.boardSpec)
         room.normalData!!.extraLines = generatedExtraLines
 
-        val spellStatusInts = msg.spellStatus.toIntArray()
-        room.spellStatus = spellStatusInts.map { it.toSpellStatus() }.toTypedArray()
-        room.spellStatusInPlayerClient = Array(2) { spellStatusInts }
+        room.spellStatus = spellStatusInts.toTypedArray()
+        room.spellStatusInPlayerClient = Array(2) { spellStatusInts.copyOf() }
 
         if (room.roomConfig.dualBoard > 0) {
             val normalData = NormalData.create(room.boardSpec)

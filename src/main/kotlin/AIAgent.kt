@@ -132,7 +132,7 @@ class AIAgent(private val room: Room) {
             if (task != null) {
                 // 恢复前重新验证任务的有效性
                 val currentCellStatus = room.spellStatus?.get(task.targetIndex)
-                if (currentCellStatus == SpellStatus.RIGHT_SELECT || currentCellStatus == SpellStatus.BOTH_SELECT) {
+                if (currentCellStatus?.hasBasicAttribute(SpellStatus.RIGHT_SELECT) == true) {
                     currentState = AIState.ATTEMPTING
                 } else {
                     logger.warn("Task for cell ${task.targetIndex} became invalid during pause. Aborting.")
@@ -173,15 +173,17 @@ class AIAgent(private val room: Room) {
     }
 
     /** 监听棋盘状态变化，用于触发对手画像的更新。 */
-    fun onCellStatusChanged(index: Int, oldStatus: SpellStatus, newStatus: SpellStatus) {
+    fun onCellStatusChanged(index: Int, oldStatus: Int, newStatus: Int) {
         logger.trace("Cell $index status changed from $oldStatus to $newStatus")
-        val isOpponentNewSelect = (newStatus == SpellStatus.LEFT_SELECT && oldStatus.isEmptyStatus()) ||
-            (newStatus == SpellStatus.BOTH_SELECT && oldStatus == SpellStatus.RIGHT_SELECT)
+        val isOpponentNewSelect = newStatus.hasBasicAttribute(SpellStatus.LEFT_SELECT) &&
+            !oldStatus.hasBasicAttribute(SpellStatus.LEFT_SELECT)
         if (isOpponentNewSelect) onOpponentSelectedCell(index)
 
-        if (newStatus == SpellStatus.LEFT_GET && oldStatus != SpellStatus.LEFT_GET) onOpponentFinishedCell(index)
+        if (newStatus.hasBasicAttribute(SpellStatus.LEFT_GET) && !oldStatus.hasBasicAttribute(SpellStatus.LEFT_GET)) {
+            onOpponentFinishedCell(index)
+        }
 
-        if (newStatus == SpellStatus.RIGHT_SELECT) {
+        if (newStatus.hasBasicAttribute(SpellStatus.RIGHT_SELECT)) {
             externallySetSelection = index
             if (!executor.isShutdown) executor.execute(this::tick)
         }
@@ -221,7 +223,9 @@ class AIAgent(private val room: Room) {
         if (bestTargetIndex != -1) {
             logger.info("AI decided to target cell $bestTargetIndex.")
             val targetStatus = room.spellStatus?.get(bestTargetIndex)
-            if (targetStatus == SpellStatus.NONE || targetStatus == SpellStatus.LEFT_SELECT) {
+            if (targetStatus?.basicSpellStatus() == SpellStatus.NONE ||
+                targetStatus?.basicSpellStatus() == SpellStatus.LEFT_SELECT
+            ) {
                 try {
                     RoomTypeNormal.handleSelectSpell(room, aiPlayerIndex, bestTargetIndex)
                     room.type.pushSpells(room, bestTargetIndex, room.players[aiPlayerIndex]?.name ?: "AI")
@@ -247,7 +251,7 @@ class AIAgent(private val room: Room) {
             return
         }
         val currentCellStatus = room.spellStatus?.get(task.targetIndex)
-        if (currentCellStatus != SpellStatus.RIGHT_SELECT && currentCellStatus != SpellStatus.BOTH_SELECT) {
+        if (currentCellStatus?.hasBasicAttribute(SpellStatus.RIGHT_SELECT) != true) {
             val reason = "Task on cell ${task.targetIndex} was preempted. Current status: $currentCellStatus."
             applyPreemptionPenalty(reason)
             return // 必须返回，因为任务已失效
@@ -300,7 +304,7 @@ class AIAgent(private val room: Room) {
         if (currentState == AIState.ATTEMPTING) {
             val task = currentTask
             val actualStatus = room.spellStatus?.get(task?.targetIndex ?: -1)
-            if (task != null && actualStatus != SpellStatus.RIGHT_SELECT && actualStatus != SpellStatus.BOTH_SELECT) {
+            if (task != null && actualStatus?.hasBasicAttribute(SpellStatus.RIGHT_SELECT) != true) {
                 val reason = "Task on cell ${task.targetIndex} was changed. Current status: $actualStatus."
                 applyPreemptionPenalty(reason)
             }
@@ -311,7 +315,7 @@ class AIAgent(private val room: Room) {
     /** 根据决策结果，开始一个新的尝试任务。 */
     private fun startNewSelectionTask(targetIndex: Int) {
         val status = room.spellStatus?.get(targetIndex)
-        if (status != SpellStatus.RIGHT_SELECT && status != SpellStatus.BOTH_SELECT) {
+        if (status?.hasBasicAttribute(SpellStatus.RIGHT_SELECT) != true) {
             logger.warn("Attempted to start task on $targetIndex, but status is now $status. Aborting.")
             currentState = AIState.IDLE
             return
@@ -929,11 +933,11 @@ class AIAgent(private val room: Room) {
 
         logger.info("Cancelling selection on cell ${task.targetIndex}. Reason: $reason")
         val cellStatus = room.spellStatus?.get(task.targetIndex)
-        if (cellStatus == SpellStatus.BOTH_SELECT) {
-            room.spellStatus?.set(task.targetIndex, SpellStatus.LEFT_SELECT)
+        if (cellStatus?.hasBasicAttribute(SpellStatus.LEFT_SELECT or SpellStatus.RIGHT_SELECT) == true) {
+            room.spellStatus?.set(task.targetIndex, cellStatus.withBasicSpellStatus(SpellStatus.LEFT_SELECT))
             room.type.pushSpells(room, task.targetIndex, "AI_Cancel")
-        } else if (cellStatus == SpellStatus.RIGHT_SELECT) {
-            room.spellStatus?.set(task.targetIndex, SpellStatus.NONE)
+        } else if (cellStatus?.basicSpellStatus() == SpellStatus.RIGHT_SELECT) {
+            room.spellStatus?.set(task.targetIndex, cellStatus.withBasicSpellStatus(SpellStatus.NONE))
             room.type.pushSpells(room, task.targetIndex, "AI_Cancel")
         }
     }
@@ -966,7 +970,7 @@ class AIAgent(private val room: Room) {
 
     /** 获取当前棋盘状态的简单表示。 */
     private fun getBoardState(): Array<PlayerState> = room.spellStatus!!.map {
-        when (it) {
+        when (it.basicSpellStatus()) {
             SpellStatus.RIGHT_GET -> PlayerState.AI
             SpellStatus.LEFT_GET -> PlayerState.HUMAN
             else -> PlayerState.EMPTY

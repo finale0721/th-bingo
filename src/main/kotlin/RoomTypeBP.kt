@@ -2,7 +2,6 @@ package org.tfcc.bingo
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.BpData
 import org.tfcc.bingo.message.HandlerException
 import java.util.concurrent.ThreadLocalRandom
@@ -57,7 +56,7 @@ object RoomTypeBP : RoomType {
                 room.spellStatus!![allIndices[idx++]] = RIGHT_SEE_ONLY
             }
             for (i in 0 until bothCount) {
-                room.spellStatus!![allIndices[idx++]] = NONE
+                room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY or RIGHT_SEE_ONLY
             }
         } else if (room.roomConfig.blindSetting == 3) {
             room.spellStatus = Array(room.spells!!.size) { ONLY_REVEAL_STAR }
@@ -106,22 +105,23 @@ object RoomTypeBP : RoomType {
     override fun handleFinishSpell(room: Room, isHost: Boolean, playerIndex: Int, spellIndex: Int, success: Boolean) {
         isHost || throw HandlerException("权限不足")
         room.bpData!!.banPick == 2 || throw HandlerException("还没轮到收卡的时候")
-        when (val st = room.spellStatus!![spellIndex]) {
+        val st = room.spellStatus!![spellIndex]
+        when (st.basicSpellStatus()) {
             LEFT_SELECT -> {
                 if (success) {
-                    room.spellStatus!![spellIndex] = LEFT_GET
+                    room.spellStatus!![spellIndex] = st.withBasicSpellStatus(LEFT_GET)
                 } else {
                     room.bpData!!.spellFailedCountA[spellIndex]++
-                    room.spellStatus!![spellIndex] = NONE
+                    room.spellStatus!![spellIndex] = st.withBasicSpellStatus(NONE)
                 }
             }
 
             RIGHT_SELECT -> {
                 if (success) {
-                    room.spellStatus!![spellIndex] = RIGHT_GET
+                    room.spellStatus!![spellIndex] = st.withBasicSpellStatus(RIGHT_GET)
                 } else {
                     room.bpData!!.spellFailedCountB[spellIndex]++
-                    room.spellStatus!![spellIndex] = NONE
+                    room.spellStatus!![spellIndex] = st.withBasicSpellStatus(NONE)
                 }
             }
 
@@ -134,7 +134,7 @@ object RoomTypeBP : RoomType {
         val allStatus = JsonObject(
             mapOf(
                 "index" to JsonPrimitive(spellIndex),
-                "status" to JsonPrimitive(status.value),
+                "status" to JsonPrimitive(status),
                 "causer" to JsonPrimitive(causer),
                 "spell_failed_count_a" to JsonPrimitive(room.bpData!!.spellFailedCountA[spellIndex]),
                 "spell_failed_count_b" to JsonPrimitive(room.bpData!!.spellFailedCountB[spellIndex]),
@@ -150,7 +150,7 @@ object RoomTypeBP : RoomType {
                     "push_update_spell_status", JsonObject(
                         mapOf(
                             "index" to JsonPrimitive(spellIndex),
-                            "status" to JsonPrimitive(status.value),
+                            "status" to JsonPrimitive(newStatus),
                             "causer" to JsonPrimitive(causer),
                             "spell_failed_count_a" to JsonPrimitive(room.bpData!!.spellFailedCountA[spellIndex]),
                             "spell_failed_count_b" to JsonPrimitive(room.bpData!!.spellFailedCountB[spellIndex]),
@@ -170,15 +170,17 @@ object RoomTypeBP : RoomType {
         else room.spellStatus!!.mapIndexed { index, status -> formatSpellStatus(room, status, playerIndex, index) }
     }
 
-    private fun formatSpellStatus(room: Room, status: SpellStatus, playerIndex: Int, spellIndex: Int): Int {
+    private fun formatSpellStatus(room: Room, status: Int, playerIndex: Int, spellIndex: Int): Int {
         var st = status
-        // 如果是不对称的可见情况，将当前能看到的改为NONE，否则为HIDDEN
-        if (st == LEFT_SEE_ONLY) {
-            st = if (playerIndex == 0) NONE else BOTH_HIDDEN
-        } else if (st == RIGHT_SEE_ONLY) {
-            st = if (playerIndex == 1) NONE else BOTH_HIDDEN
+        // 对选手将单边可见属性格式化为“可见”或“双方隐藏”，基础属性保持不变。
+        if (st.optionalSpellStatus() and SpellStatus.VISIBILITY_MASK != 0) {
+            st = if (room.type.optionalSpellStatusParser.isVisibleTo(st, playerIndex)) {
+                st.withOptionalSpellStatus(LEFT_SEE_ONLY or RIGHT_SEE_ONLY)
+            } else {
+                st.withOptionalSpellStatus(BOTH_HIDDEN)
+            }
         }
-        return st.value
+        return st
     }
 
     @Throws(HandlerException::class)
@@ -228,7 +230,7 @@ object RoomTypeBP : RoomType {
                 if (!bp.lessThan4 && bp.round % 5 == 1) {
                     var count = 0
                     for (status in room.spellStatus!!) {
-                        if (status == NONE)
+                        if (status.isEmptyStatus())
                             count++
                     }
                     if (count < 4)

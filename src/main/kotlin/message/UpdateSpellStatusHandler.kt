@@ -3,7 +3,6 @@ package org.tfcc.bingo.message
 import io.netty.channel.ChannelHandlerContext
 import kotlinx.serialization.json.*
 import org.tfcc.bingo.*
-import org.tfcc.bingo.SpellStatus.*
 
 object UpdateSpellStatusHandler : RequestHandler {
     @Throws(HandlerException::class)
@@ -34,14 +33,14 @@ object UpdateSpellStatusHandler : RequestHandler {
         // Log the update action
         room.gameLogger?.logAction(
             player = player,
-            actionType = "set-${spellStatus.value}",
+            actionType = "set-$spellStatus",
             spellIndex = idx,
             spell = room.spells!![idx]
         )
         return null
     }
 
-    private fun cardStateTransform(room: Room, player: Player, spellIdx: Int, stat: SpellStatus) {
+    private fun cardStateTransform(room: Room, player: Player, spellIdx: Int, stat: Int) {
         // 有导播，直接覆盖
         if (room.host != null) {
             room.spellStatus!![spellIdx] = stat
@@ -51,20 +50,20 @@ object UpdateSpellStatusHandler : RequestHandler {
         val isLeftPlayer = (player === room.players[0])
         var st = room.spellStatus!![spellIdx]
         if (!isLeftPlayer) st = st.opposite()
-        when (stat) {
+        when (stat.basicSpellStatus()) {
             // 如果操作是置空，则只置空己方选择状态，其余状态不受影响
             NONE -> {
-                room.spellStatus!![spellIdx] = when (st) {
-                    LEFT_SELECT -> NONE
-                    BOTH_SELECT -> RIGHT_SELECT
-                    else -> stat
+                room.spellStatus!![spellIdx] = when (st.basicSpellStatus()) {
+                    LEFT_SELECT -> st.withBasicSpellStatus(NONE)
+                    LEFT_SELECT or RIGHT_SELECT -> st.withBasicSpellStatus(RIGHT_SELECT)
+                    else -> st
                 }.run { if (!isLeftPlayer) opposite() else this }
             }
             // 如果操作是选择，则将对方选择状态提升为双选。由于需要保留原始结果，故不反转
             LEFT_SELECT, RIGHT_SELECT -> {
-                room.spellStatus!![spellIdx] = when (st) {
-                    RIGHT_SELECT -> BOTH_SELECT
-                    else -> stat
+                room.spellStatus!![spellIdx] = when (st.basicSpellStatus()) {
+                    RIGHT_SELECT -> st.withBasicSpellStatus(LEFT_SELECT or RIGHT_SELECT)
+                    else -> st.withBasicSpellStatus(stat)
                 }
             }
             // 其余情况，直接覆盖即可
@@ -77,22 +76,22 @@ object UpdateSpellStatusHandler : RequestHandler {
     private fun recordGetBoard(room: Room, player: Player, spellIdx: Int) {
         if (room.normalData == null) return
         val st = room.spellStatus!![spellIdx]
-        if (st == LEFT_GET && room.normalData!!.whichBoardA == 0) {
+        if (st.basicSpellStatus() == LEFT_GET && room.normalData!!.whichBoardA == 0) {
             room.normalData!!.getOnWhichBoard[spellIdx] = 0x1
             if (room.normalData!!.isPortalA[spellIdx] == 1) {
                 room.normalData!!.whichBoardA = 1 - room.normalData!!.whichBoardA
             }
-        } else if (st == LEFT_GET && room.normalData!!.whichBoardA == 1) {
+        } else if (st.basicSpellStatus() == LEFT_GET && room.normalData!!.whichBoardA == 1) {
             room.normalData!!.getOnWhichBoard[spellIdx] = 0x2
             if (room.normalData!!.isPortalB[spellIdx] == 1) {
                 room.normalData!!.whichBoardA = 1 - room.normalData!!.whichBoardA
             }
-        } else if (st == RIGHT_GET && room.normalData!!.whichBoardB == 0) {
+        } else if (st.basicSpellStatus() == RIGHT_GET && room.normalData!!.whichBoardB == 0) {
             room.normalData!!.getOnWhichBoard[spellIdx] = 0x10
             if (room.normalData!!.isPortalA[spellIdx] == 1) {
                 room.normalData!!.whichBoardB = 1 - room.normalData!!.whichBoardB
             }
-        } else if (st == RIGHT_GET && room.normalData!!.whichBoardB == 1) {
+        } else if (st.basicSpellStatus() == RIGHT_GET && room.normalData!!.whichBoardB == 1) {
             room.normalData!!.getOnWhichBoard[spellIdx] = 0x20
             if (room.normalData!!.isPortalB[spellIdx] == 1) {
                 room.normalData!!.whichBoardB = 1 - room.normalData!!.whichBoardB

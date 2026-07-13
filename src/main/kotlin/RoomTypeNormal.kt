@@ -2,7 +2,6 @@ package org.tfcc.bingo
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.HandlerException
 import org.tfcc.bingo.message.NormalData
 import java.util.concurrent.ThreadLocalRandom
@@ -13,7 +12,7 @@ object RoomTypeNormal : RoomType {
 
     override val canPause = true
 
-    var spellStatusBackup = emptyArray<SpellStatus>()
+    var spellStatusBackup = emptyArray<Int>()
 
     override fun onStart(room: Room) {
         spellStatusBackup = Array(room.boardArea) { NONE }
@@ -74,7 +73,7 @@ object RoomTypeNormal : RoomType {
                 room.spellStatus!![allIndices[idx++]] = RIGHT_SEE_ONLY
             }
             for (i in 0 until bothCount) {
-                room.spellStatus!![allIndices[idx++]] = NONE
+                room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY or RIGHT_SEE_ONLY
             }
         } else if (room.roomConfig.blindSetting == 3) {
             // gameOnly, stageOnly, bothReveal — 5x5 base counts, scaled by board area
@@ -94,7 +93,7 @@ object RoomTypeNormal : RoomType {
                 room.spellStatus!![allIndices[idx++]] = ONLY_REVEAL_GAME_STAGE
             }
             for (i in 0 until bothCount) {
-                room.spellStatus!![allIndices[idx++]] = NONE
+                room.spellStatus!![allIndices[idx++]] = LEFT_SEE_ONLY or RIGHT_SEE_ONLY
             }
         }
         room.spellStatus!!.forEachIndexed { index, status -> spellStatusBackup[index] = status }
@@ -224,7 +223,7 @@ object RoomTypeNormal : RoomType {
         )
             throw HandlerException("游戏时间到")
         if (now < room.startMs + countdown) {
-            if (st == RIGHT_SELECT) throw HandlerException("倒计时阶段不能抢卡")
+            if (st.basicSpellStatus() == RIGHT_SELECT) throw HandlerException("倒计时阶段不能抢卡")
         }
         // 选卡CD
         val cdTime = room.actualCdTime[playerIndex] // 使用各选手的实际CD时间
@@ -236,14 +235,12 @@ object RoomTypeNormal : RoomType {
                 throw HandlerException("还有${remainSelectTime / 1000 + 1}秒才能选卡")
         }
 
-        room.spellStatus!![spellIndex] = when (st) {
+        room.spellStatus!![spellIndex] = when (st.basicSpellStatus()) {
             LEFT_GET -> throw HandlerException("你已打完")
             RIGHT_GET -> throw HandlerException("对方已打完")
-            NONE -> LEFT_SELECT
+            NONE -> st.withBasicSpellStatus(LEFT_SELECT)
             LEFT_SELECT -> throw HandlerException("重复选卡")
-            BOTH_SELECT, RIGHT_SELECT -> BOTH_SELECT
-            BOTH_HIDDEN, LEFT_SEE_ONLY, RIGHT_SEE_ONLY -> LEFT_SELECT
-            ONLY_REVEAL_GAME, ONLY_REVEAL_GAME_STAGE, ONLY_REVEAL_STAR -> LEFT_SELECT
+            LEFT_SELECT or RIGHT_SELECT, RIGHT_SELECT -> st.withBasicSpellStatus(LEFT_SELECT or RIGHT_SELECT)
             else -> throw HandlerException("状态错误：$st")
         }.run { if (playerIndex == 1) opposite() else this }
 
@@ -301,13 +298,11 @@ object RoomTypeNormal : RoomType {
             throw HandlerException("倒计时还没结束")
         }
 
-        room.spellStatus!![spellIndex] = when (st) {
+        room.spellStatus!![spellIndex] = when (st.basicSpellStatus()) {
             LEFT_GET -> throw HandlerException("你已打完")
             RIGHT_GET -> throw HandlerException("对方已打完")
             NONE, RIGHT_SELECT -> throw HandlerException("你还未选卡")
-            BOTH_SELECT, LEFT_SELECT -> LEFT_GET
-            BOTH_HIDDEN, LEFT_SEE_ONLY, RIGHT_SEE_ONLY -> throw HandlerException("你还未选卡")
-            ONLY_REVEAL_GAME, ONLY_REVEAL_GAME_STAGE, ONLY_REVEAL_STAR -> throw HandlerException("你还未选卡")
+            LEFT_SELECT or RIGHT_SELECT, LEFT_SELECT -> st.withBasicSpellStatus(LEFT_GET)
             else -> throw HandlerException("状态错误：$st")
         }.run { if (playerIndex == 1) opposite() else this }
 
@@ -320,7 +315,7 @@ object RoomTypeNormal : RoomType {
         if (room.roomConfig.dualBoard <= 0) {
             room.gameLogger?.logAction(
                 player = room.players[playerIndex]!!,
-                actionType = if (st == BOTH_SELECT) "contest_win" else "finish",
+                actionType = if (st.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) "contest_win" else "finish",
                 spellIndex = spellIndex,
                 spell = room.spells!![spellIndex],
             )
@@ -340,7 +335,7 @@ object RoomTypeNormal : RoomType {
         val board = if (playerIndex == 0) room.normalData!!.whichBoardA else room.normalData!!.whichBoardB
         room.gameLogger?.logAction(
             player = room.players[playerIndex]!!,
-            actionType = if (st == BOTH_SELECT) "contest_win" else "finish",
+            actionType = if (st.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) "contest_win" else "finish",
             spellIndex = spellIndex,
             spell = if (board == 0) room.spells!![spellIndex] else room.spells2!![spellIndex],
         )
@@ -379,17 +374,21 @@ object RoomTypeNormal : RoomType {
     /**
      * 收了一定数量的卡之后，隐藏对方的选卡
      */
-    private fun formatSpellStatus(room: Room, status: SpellStatus, playerIndex: Int): Int {
+    private fun formatSpellStatus(room: Room, status: Int, playerIndex: Int): Int {
         var st = status
         if (st.isSelectStatus()) {
             if ((room.roomConfig.reservedType ?: 0) == 0) {
                 // 个人赛对方达到隐藏阈值后，不再可以看到对方的选卡
                 if (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) {
-                    if (status == RIGHT_SELECT) st = NONE
-                    else if (status == BOTH_SELECT) st = LEFT_SELECT
+                    if (status.basicSpellStatus() == RIGHT_SELECT) st = status.withBasicSpellStatus(NONE)
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(LEFT_SELECT)
+                    }
                 } else if (playerIndex == 1 && shouldHideSelectionsOf(room, 0)) {
-                    if (status == LEFT_SELECT) st = NONE
-                    else if (status == BOTH_SELECT) st = RIGHT_SELECT
+                    if (status.basicSpellStatus() == LEFT_SELECT) st = status.withBasicSpellStatus(NONE)
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(RIGHT_SELECT)
+                    }
                 }
             } else if (
                 (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) ||
@@ -397,15 +396,19 @@ object RoomTypeNormal : RoomType {
             ) {
                 // 团体赛对方达到隐藏阈值后，不再可以看到对方的选卡
                 if (playerIndex == 0) {
-                    if (status == RIGHT_SELECT) st = NONE
-                    else if (status == BOTH_SELECT) st = LEFT_SELECT
+                    if (status.basicSpellStatus() == RIGHT_SELECT) st = status.withBasicSpellStatus(NONE)
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(LEFT_SELECT)
+                    }
                 } else if (playerIndex == 1) {
-                    if (status == LEFT_SELECT) st = NONE
-                    else if (status == BOTH_SELECT) st = RIGHT_SELECT
+                    if (status.basicSpellStatus() == LEFT_SELECT) st = status.withBasicSpellStatus(NONE)
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(RIGHT_SELECT)
+                    }
                 }
             }
         }
-        return st.value
+        return st
     }
 
     /**
@@ -414,20 +417,24 @@ object RoomTypeNormal : RoomType {
      * 前五张对方的选卡不是HIDDEN状态，只要选择就是双方可见状态
      * 而五张之后对方选卡不可见，若处于自己视野之外则为HIDDEN，否则为NONE。
      */
-    private fun formatSpellStatus2(room: Room, status: SpellStatus, playerIndex: Int, spellIndex: Int): Int {
+    private fun formatSpellStatus2(room: Room, status: Int, playerIndex: Int, spellIndex: Int): Int {
         var st = status
         // 如果是对称的可见情况，隐藏选卡
         if (st.isSelectStatus()) {
             if ((room.roomConfig.reservedType ?: 0) == 0) {
                 // 个人赛对方达到隐藏阈值后，不再可以看到对方的选卡
                 if (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) {
-                    if (status == RIGHT_SELECT)
+                    if (status.basicSpellStatus() == RIGHT_SELECT)
                         st = decideStatus(room, spellIndex, false)
-                    else if (status == BOTH_SELECT) st = LEFT_SELECT
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(LEFT_SELECT)
+                    }
                 } else if (playerIndex == 1 && shouldHideSelectionsOf(room, 0)) {
-                    if (status == LEFT_SELECT)
+                    if (status.basicSpellStatus() == LEFT_SELECT)
                         st = decideStatus(room, spellIndex, true)
-                    else if (status == BOTH_SELECT) st = RIGHT_SELECT
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(RIGHT_SELECT)
+                    }
                 }
             } else if (
                 (playerIndex == 0 && shouldHideSelectionsOf(room, 1)) ||
@@ -435,35 +442,43 @@ object RoomTypeNormal : RoomType {
             ) {
                 // 团体赛对方达到隐藏阈值后，不再可以看到对方的选卡
                 if (playerIndex == 0) {
-                    if (status == RIGHT_SELECT)
+                    if (status.basicSpellStatus() == RIGHT_SELECT)
                         st = decideStatus(room, spellIndex, false)
-                    else if (status == BOTH_SELECT) st = LEFT_SELECT
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(LEFT_SELECT)
+                    }
                 } else if (playerIndex == 1) {
-                    if (status == LEFT_SELECT)
+                    if (status.basicSpellStatus() == LEFT_SELECT)
                         st = decideStatus(room, spellIndex, true)
-                    else if (status == BOTH_SELECT) st = RIGHT_SELECT
+                    else if (status.hasBasicAttribute(LEFT_SELECT or RIGHT_SELECT)) {
+                        st = status.withBasicSpellStatus(RIGHT_SELECT)
+                    }
                 }
             }
         }
-        // 如果是不对称的可见情况，将当前能看到的改为NONE，否则为HIDDEN
-        if (st == LEFT_SEE_ONLY) {
-            st = if (playerIndex == 0) NONE else BOTH_HIDDEN
-        } else if (st == RIGHT_SEE_ONLY) {
-            st = if (playerIndex == 1) NONE else BOTH_HIDDEN
+        // 对选手将单边可见属性格式化为“可见”或“双方隐藏”，基础属性保持不变。
+        if (st.optionalSpellStatus() and SpellStatus.VISIBILITY_MASK != 0) {
+            st = if (room.type.optionalSpellStatusParser.isVisibleTo(st, playerIndex)) {
+                st.withOptionalSpellStatus(LEFT_SEE_ONLY or RIGHT_SEE_ONLY)
+            } else {
+                st.withOptionalSpellStatus(BOTH_HIDDEN)
+            }
         }
-        return st.value
+        return st
     }
 
-    private fun decideStatus(room: Room, spellIndex: Int, isLeftSelect: Boolean): SpellStatus {
+    private fun decideStatus(room: Room, spellIndex: Int, isLeftSelect: Boolean): Int {
         if (room.roomConfig.blindSetting == 2) {
-            if (spellStatusBackup[spellIndex] == NONE ||
-                (spellStatusBackup[spellIndex] == LEFT_SEE_ONLY && !isLeftSelect) ||
-                (spellStatusBackup[spellIndex] == RIGHT_SEE_ONLY && isLeftSelect)
-            )
-                return NONE
-            else return BOTH_HIDDEN
+            val backupStatus = spellStatusBackup[spellIndex]
+            val viewerIndex = if (isLeftSelect) 1 else 0
+            return if (room.type.optionalSpellStatusParser.isVisibleTo(backupStatus, viewerIndex)) {
+                backupStatus.withBasicSpellStatus(NONE)
+                    .withOptionalSpellStatus(LEFT_SEE_ONLY or RIGHT_SEE_ONLY)
+            } else {
+                backupStatus.withBasicSpellStatus(NONE).withOptionalSpellStatus(BOTH_HIDDEN)
+            }
         } else if (room.roomConfig.blindSetting == 3) {
-            return spellStatusBackup[spellIndex]
+            return spellStatusBackup[spellIndex].withBasicSpellStatus(NONE)
         }
         return NONE
     }
@@ -486,7 +501,8 @@ object RoomTypeNormal : RoomType {
 
     private fun shouldHideSelectionsOf(room: Room, playerIndex: Int): Boolean {
         val getStatus = if (playerIndex == 0) LEFT_GET else RIGHT_GET
-        return room.spellStatus!!.count { it == getStatus } >= hiddenSelectThreshold(room, playerIndex)
+        return room.spellStatus!!.count { it.basicSpellStatus() == getStatus } >=
+            hiddenSelectThreshold(room, playerIndex)
     }
 
     override fun pushSpells(room: Room, spellIndex: Int, causer: String) {
@@ -494,7 +510,7 @@ object RoomTypeNormal : RoomType {
         val allStatus = JsonObject(
             mapOf(
                 "index" to JsonPrimitive(spellIndex),
-                "status" to JsonPrimitive(status.value),
+                "status" to JsonPrimitive(status),
                 "causer" to JsonPrimitive(causer),
                 // 收取符卡后可能改变：玩家所处的版面、收取记录
                 "which_board_a" to JsonPrimitive(room.normalData!!.whichBoardA),
@@ -534,22 +550,16 @@ object RoomTypeNormal : RoomType {
         else room.spellStatus!!.mapIndexed { index, status -> formatSpellStatus2(room, status, playerIndex, index) }
     }
 
-    override fun updateSpellStatusPostProcesser(
-        room: Room,
-        player: Player,
-        spellIndex: Int,
-        prevStatus: SpellStatus,
-        status: SpellStatus
-    ) {
+    override fun updateSpellStatusPostProcesser(room: Room, player: Player, spellIndex: Int, prevStatus: Int, status: Int) {
         // 盲盒模式1中，单方面选择并取消选卡会使符卡回归初始状态
         if (room.roomConfig.blindSetting == 2) {
-            if (status == NONE && prevStatus.isOneSelectStatus()) {
+            if (status.basicSpellStatus() == NONE && prevStatus.isOneSelectStatus()) {
                 room.spellStatus!![spellIndex] = spellStatusBackup[spellIndex]
             }
         }
         // 盲盒模式2中，不允许出现NONE状态。翻回去的牌返回初始状态（如果不是BOTH_SELECT）
         if (room.roomConfig.blindSetting == 3) {
-            if (status == NONE && prevStatus.isOneSelectStatus()) {
+            if (status.basicSpellStatus() == NONE && prevStatus.isOneSelectStatus()) {
                 room.spellStatus!![spellIndex] = spellStatusBackup[spellIndex]
             }
         }
@@ -559,8 +569,8 @@ object RoomTypeNormal : RoomType {
     private fun Room.scoreDraw(): Boolean {
         var left = 0
         spellStatus!!.forEach {
-            if (it == LEFT_GET) left++
-            else if (it == RIGHT_GET) left--
+            if (it.basicSpellStatus() == LEFT_GET) left++
+            else if (it.basicSpellStatus() == RIGHT_GET) left--
         }
         return left == 0
     }

@@ -2,68 +2,106 @@ package org.tfcc.bingo
 
 import org.tfcc.bingo.message.HandlerException
 
-@Throws(HandlerException::class)
-fun Int.toSpellStatus(): SpellStatus {
-    return when (this) {
-        -1 -> SpellStatus.BANNED
-        0 -> SpellStatus.NONE
-        1 -> SpellStatus.LEFT_SELECT
-        2 -> SpellStatus.BOTH_SELECT
-        3 -> SpellStatus.RIGHT_SELECT
-        5 -> SpellStatus.LEFT_GET
-        6 -> SpellStatus.BOTH_GET
-        7 -> SpellStatus.RIGHT_GET
-        0x1000 -> SpellStatus.BOTH_HIDDEN
-        0x1001 -> SpellStatus.LEFT_SEE_ONLY
-        0x1002 -> SpellStatus.RIGHT_SEE_ONLY
-        0x1010 -> SpellStatus.ONLY_REVEAL_GAME
-        0x1011 -> SpellStatus.ONLY_REVEAL_GAME_STAGE
-        0x1012 -> SpellStatus.ONLY_REVEAL_STAR
-        else -> throw HandlerException("status不合法")
+/** 32-bit spell-cell status: basic attributes use the low 16 bits and optional attributes use the high 16 bits. */
+object SpellStatus {
+    const val BASIC_MASK = 0x0000FFFF
+    const val OPTIONAL_MASK = -0x10000
+
+    const val NONE = 0x0
+    const val BANNED = 0x1
+    const val LEFT_SELECT = 0x2
+    const val RIGHT_SELECT = 0x4
+    const val LEFT_GET = 0x8
+    const val RIGHT_GET = 0x10
+
+    const val BOTH_HIDDEN = 0x0
+    const val LEFT_SEE_ONLY = 0x1 shl 16
+    const val RIGHT_SEE_ONLY = 0x2 shl 16
+    const val ONLY_REVEAL_GAME = 0x4 shl 16
+    const val ONLY_REVEAL_GAME_STAGE = 0x8 shl 16
+    const val ONLY_REVEAL_STAR = 0x10 shl 16
+
+    const val SELECT_MASK = LEFT_SELECT or RIGHT_SELECT
+    const val GET_MASK = LEFT_GET or RIGHT_GET
+    const val KNOWN_BASIC_MASK = BANNED or SELECT_MASK or GET_MASK
+    const val VISIBILITY_MASK = LEFT_SEE_ONLY or RIGHT_SEE_ONLY
+}
+
+const val NONE = SpellStatus.NONE
+const val BANNED = SpellStatus.BANNED
+const val LEFT_SELECT = SpellStatus.LEFT_SELECT
+const val RIGHT_SELECT = SpellStatus.RIGHT_SELECT
+const val LEFT_GET = SpellStatus.LEFT_GET
+const val RIGHT_GET = SpellStatus.RIGHT_GET
+const val BOTH_HIDDEN = SpellStatus.BOTH_HIDDEN
+const val LEFT_SEE_ONLY = SpellStatus.LEFT_SEE_ONLY
+const val RIGHT_SEE_ONLY = SpellStatus.RIGHT_SEE_ONLY
+const val ONLY_REVEAL_GAME = SpellStatus.ONLY_REVEAL_GAME
+const val ONLY_REVEAL_GAME_STAGE = SpellStatus.ONLY_REVEAL_GAME_STAGE
+const val ONLY_REVEAL_STAR = SpellStatus.ONLY_REVEAL_STAR
+
+/**
+ * Optional-attribute interpretation is replaceable per game mode. The default parser is shared by all current modes.
+ */
+interface OptionalSpellStatusParser {
+    fun hasAttribute(status: Int, attribute: Int): Boolean
+
+    fun isVisibleTo(status: Int, playerIndex: Int): Boolean
+}
+
+object DefaultOptionalSpellStatusParser : OptionalSpellStatusParser {
+    override fun hasAttribute(status: Int, attribute: Int): Boolean {
+        val optionalStatus = status.optionalSpellStatus()
+        return if (attribute == BOTH_HIDDEN) optionalStatus == BOTH_HIDDEN else optionalStatus and attribute == attribute
+    }
+
+    override fun isVisibleTo(status: Int, playerIndex: Int): Boolean {
+        val visibilityAttribute = when (playerIndex) {
+            0 -> LEFT_SEE_ONLY
+            1 -> RIGHT_SEE_ONLY
+            else -> SpellStatus.VISIBILITY_MASK
+        }
+        return status and visibilityAttribute != 0
     }
 }
 
-enum class SpellStatus(val value: Int) {
-    NONE(0),
-    BANNED(-1),
-    LEFT_SELECT(1),
-    BOTH_SELECT(2),
-    RIGHT_SELECT(3),
-    LEFT_GET(5),
-    BOTH_GET(6),
-    RIGHT_GET(7),
-    BOTH_HIDDEN(0x1000),
-    LEFT_SEE_ONLY(0x1001),
-    RIGHT_SEE_ONLY(0x1002),
-    ONLY_REVEAL_GAME(0x1010),
-    ONLY_REVEAL_GAME_STAGE(0x1011),
-    ONLY_REVEAL_STAR(0x1012);
+fun Int.basicSpellStatus(): Int = this and SpellStatus.BASIC_MASK
 
-    fun isSelectStatus(): Boolean {
-        return this == LEFT_SELECT || this == RIGHT_SELECT || this == BOTH_SELECT
-    }
+fun Int.optionalSpellStatus(): Int = this and SpellStatus.OPTIONAL_MASK
 
-    fun isGetStatus(): Boolean {
-        return this == LEFT_GET || this == RIGHT_GET || this == BOTH_GET
-    }
+fun Int.withBasicSpellStatus(basicStatus: Int): Int = optionalSpellStatus() or (basicStatus and SpellStatus.BASIC_MASK)
 
-    fun isEmptyStatus(): Boolean {
-        return this == NONE || this == BOTH_HIDDEN || this == LEFT_SEE_ONLY || this == RIGHT_SEE_ONLY ||
-            this == ONLY_REVEAL_GAME || this == ONLY_REVEAL_GAME_STAGE || this == ONLY_REVEAL_STAR
-    }
+fun Int.withOptionalSpellStatus(optionalStatus: Int): Int = basicSpellStatus() or (optionalStatus and SpellStatus.OPTIONAL_MASK)
 
-    fun isOneSelectStatus(): Boolean {
-        return this == LEFT_SELECT || this == RIGHT_SELECT
-    }
+fun Int.hasBasicAttribute(attribute: Int): Boolean = basicSpellStatus() and attribute == attribute
 
-    /** 左右颠倒，方便计算 */
-    fun opposite(): SpellStatus = when (this) {
-        LEFT_GET -> RIGHT_GET
-        RIGHT_GET -> LEFT_GET
-        LEFT_SELECT -> RIGHT_SELECT
-        RIGHT_SELECT -> LEFT_SELECT
-        LEFT_SEE_ONLY -> RIGHT_SEE_ONLY
-        RIGHT_SEE_ONLY -> LEFT_SEE_ONLY
-        else -> this
+fun Int.hasAnyBasicAttribute(mask: Int): Boolean = basicSpellStatus() and mask != 0
+
+fun Int.isSelectStatus(): Boolean = hasAnyBasicAttribute(SpellStatus.SELECT_MASK)
+
+fun Int.isGetStatus(): Boolean = hasAnyBasicAttribute(SpellStatus.GET_MASK)
+
+fun Int.isEmptyStatus(): Boolean = basicSpellStatus() == NONE
+
+fun Int.isOneSelectStatus(): Boolean = basicSpellStatus() == LEFT_SELECT || basicSpellStatus() == RIGHT_SELECT
+
+/** Swap all left/right attributes without changing unrelated or unknown optional attributes. */
+fun Int.opposite(): Int {
+    var result = this and (LEFT_SELECT or RIGHT_SELECT or LEFT_GET or RIGHT_GET or
+        LEFT_SEE_ONLY or RIGHT_SEE_ONLY).inv()
+    if (this and LEFT_SELECT != 0) result = result or RIGHT_SELECT
+    if (this and RIGHT_SELECT != 0) result = result or LEFT_SELECT
+    if (this and LEFT_GET != 0) result = result or RIGHT_GET
+    if (this and RIGHT_GET != 0) result = result or LEFT_GET
+    if (this and LEFT_SEE_ONLY != 0) result = result or RIGHT_SEE_ONLY
+    if (this and RIGHT_SEE_ONLY != 0) result = result or LEFT_SEE_ONLY
+    return result
+}
+
+@Throws(HandlerException::class)
+fun Int.toSpellStatus(): Int {
+    if (basicSpellStatus() and SpellStatus.KNOWN_BASIC_MASK.inv() != 0) {
+        throw HandlerException("status不合法")
     }
+    return this
 }

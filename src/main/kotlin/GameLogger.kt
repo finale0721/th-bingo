@@ -29,8 +29,8 @@ class GameLogger {
         var left = 0
         var right = 0
         room.spellStatus!!.forEach {
-            if (it == SpellStatus.LEFT_GET) left++
-            else if (it == SpellStatus.RIGHT_GET) right++
+            if (it.basicSpellStatus() == SpellStatus.LEFT_GET) left++
+            else if (it.basicSpellStatus() == SpellStatus.RIGHT_GET) right++
         }
         score[0] = left
         score[1] = right
@@ -46,8 +46,8 @@ class GameLogger {
         var left = 0
         var right = 0
         room.spellStatus!!.forEach {
-            if (it == SpellStatus.LEFT_GET) left++
-            else if (it == SpellStatus.RIGHT_GET) right++
+            if (it.basicSpellStatus() == SpellStatus.LEFT_GET) left++
+            else if (it.basicSpellStatus() == SpellStatus.RIGHT_GET) right++
         }
         val scoreNow = intArrayOf(0, 0)
         scoreNow[0] = left
@@ -80,9 +80,9 @@ class GameLogger {
         this.gameStartTimestamp = room.startMs
         this.players[0] = room.players[0]?.name ?: "PlayerA"
         this.players[1] = room.players[1]?.name ?: "PlayerB"
-        this.initStatus = Array(room.spells!!.size) { SpellStatus.NONE.value }
+        this.initStatus = Array(room.spells!!.size) { SpellStatus.NONE }
         room.spellStatus!!.forEachIndexed { index, status ->
-            initStatus!![index] = status.value
+            initStatus!![index] = status
         }
         this.isCustomGame = room.isCustomGame
         updateNormalData(room)
@@ -151,6 +151,7 @@ class GameLogger {
             initStatus = initStatus!!.toList(),
             isCustomGame = this.isCustomGame,
             linkData = this.linkData,
+            spellStatusVersion = SpellStatusConverter.CURRENT_VERSION,
         )
     }
 

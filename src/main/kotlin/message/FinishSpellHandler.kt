@@ -3,7 +3,6 @@ package org.tfcc.bingo.message
 import io.netty.channel.ChannelHandlerContext
 import kotlinx.serialization.json.*
 import org.tfcc.bingo.*
-import org.tfcc.bingo.SpellStatus.*
 
 object FinishSpellHandler : RequestHandler {
     @Throws(HandlerException::class)

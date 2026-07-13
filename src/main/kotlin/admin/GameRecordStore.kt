@@ -5,7 +5,9 @@ import kotlinx.serialization.json.Json
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.Room
 import org.tfcc.bingo.SpellStatus
+import org.tfcc.bingo.SpellStatusConverter
 import org.tfcc.bingo.Store
+import org.tfcc.bingo.basicSpellStatus
 import org.tfcc.bingo.message.GameLog
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -56,7 +58,9 @@ object GameRecordStore {
         }
 
         room.spellStatus?.let { spellStatus ->
-            return spellStatus.any { it == SpellStatus.LEFT_GET || it == SpellStatus.RIGHT_GET }
+            return spellStatus.any {
+                it.basicSpellStatus() == SpellStatus.LEFT_GET || it.basicSpellStatus() == SpellStatus.RIGHT_GET
+            }
         }
 
         val serializedLog = room.gameLogger?.getSerializedLog()
@@ -521,7 +525,9 @@ object GameRecordStore {
             return null
         }
         return try {
-            json.decodeFromString<AdminGameRecord>(recordFile.readText(StandardCharsets.UTF_8))
+            json.decodeFromString<AdminGameRecord>(recordFile.readText(StandardCharsets.UTF_8)).let { record ->
+                record.copy(gameLog = record.gameLog?.let(SpellStatusConverter::convertGameLog))
+            }
         } catch (e: Exception) {
             logger.error("Failed to read game record ${recordFile.absolutePath}", e)
             null

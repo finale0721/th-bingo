@@ -1,5 +1,6 @@
 package org.tfcc.bingo.message
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import org.tfcc.bingo.Spell
 
@@ -59,4 +60,6 @@ data class GameLog(
     val initStatus: List<Int> = emptyList(),
     val isCustomGame: Boolean = false,
     val linkData: LinkData? = null,
+    @SerialName("spell_status_version")
+    val spellStatusVersion: Int = 1,
 )

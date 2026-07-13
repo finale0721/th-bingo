@@ -5,10 +5,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.int
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.tfcc.bingo.Player
-import org.tfcc.bingo.RequestHandler
-import org.tfcc.bingo.RoomTypeBP
-import org.tfcc.bingo.SpellStatus.*
+import org.tfcc.bingo.*
 
 object BpGameBanPickHandler : RequestHandler {
     @Throws(HandlerException::class)
@@ -23,11 +20,13 @@ object BpGameBanPickHandler : RequestHandler {
         room.spellStatus!![idx].isEmptyStatus() || throw HandlerException("这个符卡已经被选择了")
         when (room.bpData!!.banPick) {
             0 -> { // 选
-                room.spellStatus!![idx] = if (playerIndex == 0) LEFT_SELECT else RIGHT_SELECT
+                room.spellStatus!![idx] = room.spellStatus!![idx].withBasicSpellStatus(
+                    if (playerIndex == 0) LEFT_SELECT else RIGHT_SELECT
+                )
             }
 
             1 -> { // ban
-                room.spellStatus!![idx] = BANNED
+                room.spellStatus!![idx] = room.spellStatus!![idx].withBasicSpellStatus(BANNED)
             }
 
             else -> throw HandlerException("不是BP阶段")

@@ -128,7 +128,7 @@ class LinkAIAgent(private val room: Room) {
         val route = linkData.linkIdxB
         if (linkData.currentStepB >= route.size) return
         val idx = route[linkData.currentStepB]
-        if (linkData.statusB[idx] != RIGHT_SELECT.value) {
+        if (linkData.statusB[idx] != RIGHT_SELECT) {
             val cdRemain = linkData.lastGetTimeB + room.actualCdTime[aiPlayerIndex] - System.currentTimeMillis()
             if (cdRemain > 1000L) return
             RoomTypeLink.selectNext(room, aiPlayerIndex)
@@ -159,7 +159,7 @@ class LinkAIAgent(private val room: Room) {
         var virtualNow = linkData.startMsB.takeIf { it > 0L }?.plus(virtualUsedMs) ?: System.currentTimeMillis()
         while (linkData.currentStepB < route.size) {
             val idx = route[linkData.currentStepB]
-            linkData.statusB[idx] = RIGHT_SELECT.value
+            linkData.statusB[idx] = RIGHT_SELECT
             room.gameLogger?.logLinkAction(room, aiPlayerIndex, "link_next_card", idx, virtualNow)
             var elapsedOnCell = 0L
             while (true) {
@@ -200,7 +200,7 @@ class LinkAIAgent(private val room: Room) {
         } else {
             linkData.skippedIdxB.remove(idx)
         }
-        linkData.statusB[idx] = SpellStatus.RIGHT_GET.value
+        linkData.statusB[idx] = SpellStatus.RIGHT_GET
         linkData.currentStepB = currentStep + 1
         linkData.lastGetTimeB = virtualNow
         if (linkData.currentStepB >= route.size) {

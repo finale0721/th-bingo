@@ -32,13 +32,7 @@ object SpellLog {
         }
     }
 
-    fun logSpellOperate(
-        status: SpellStatus,
-        spell: Spell,
-        name: String,
-        time: Long = System.currentTimeMillis(),
-        gameType: Int
-    ) {
+    fun logSpellOperate(status: Int, spell: Spell, name: String, time: Long = System.currentTimeMillis(), gameType: Int) {
         try {
             if (status.isSelectStatus()) {
                 logSpell(LogType.SELECT, spell, name, time, gameType = gameType)

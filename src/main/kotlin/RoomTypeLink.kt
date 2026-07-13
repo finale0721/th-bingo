@@ -2,7 +2,6 @@ package org.tfcc.bingo
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.tfcc.bingo.SpellStatus.*
 import org.tfcc.bingo.message.HandlerException
 import org.tfcc.bingo.message.LinkData
 import java.util.*
@@ -34,8 +33,8 @@ object RoomTypeLink : RoomType {
         room.spellStatus!![startB] = RIGHT_SELECT
         val linkData = LinkData()
         linkData.ensureStatusSize(board.area)
-        linkData.statusA[startA] = LEFT_SELECT.value
-        linkData.statusB[startB] = RIGHT_SELECT.value
+        linkData.statusA[startA] = LEFT_SELECT
+        linkData.statusB[startB] = RIGHT_SELECT
         linkData.linkIdxA.add(startA)
         linkData.linkIdxB.add(startB)
         linkData.disabledIdx.addAll(room.roomConfig.linkDisabledIdx.distinct())
@@ -115,14 +114,14 @@ object RoomTypeLink : RoomType {
             "push_update_spell_status", JsonObject(
                 mapOf(
                     "index" to JsonPrimitive(spellIndex),
-                    "status" to JsonPrimitive(status.value),
+                    "status" to JsonPrimitive(status),
                     "causer" to JsonPrimitive(causer),
                 )
             )
         )
         with(room.spellStatusInPlayerClient!!) {
             indices.forEach {
-                this[it][spellIndex] = status.value
+                this[it][spellIndex] = status
             }
         }
     }
@@ -211,8 +210,8 @@ object RoomTypeLink : RoomType {
         linkData.eventB = 1
         linkData.lastGetTimeA = now - room.actualCdTime[0]
         linkData.lastGetTimeB = now - room.actualCdTime[1]
-        if (linkData.linkIdxA.isNotEmpty()) linkData.statusA[linkData.linkIdxA[0]] = LEFT_SELECT.value
-        if (linkData.linkIdxB.isNotEmpty()) linkData.statusB[linkData.linkIdxB[0]] = RIGHT_SELECT.value
+        if (linkData.linkIdxA.isNotEmpty()) linkData.statusA[linkData.linkIdxA[0]] = LEFT_SELECT
+        if (linkData.linkIdxB.isNotEmpty()) linkData.statusB[linkData.linkIdxB[0]] = RIGHT_SELECT
         pushLinkData(room)
         room.gameLogger?.logLinkAction(room, 0, "link_start_run", linkData.linkIdxA.firstOrNull() ?: -1)
         room.gameLogger?.logLinkAction(room, 1, "link_start_run", linkData.linkIdxB.firstOrNull() ?: -1)
@@ -227,15 +226,15 @@ object RoomTypeLink : RoomType {
         if (currentStep >= route.size) throw HandlerException("路线已完成")
         val idx = route[currentStep]
         val status = if (playerIndex == 0) linkData.statusA[idx] else linkData.statusB[idx]
-        if (status == LEFT_SELECT.value || status == RIGHT_SELECT.value) throw HandlerException("已经选择了这张卡")
+        if (status == LEFT_SELECT || status == RIGHT_SELECT) throw HandlerException("已经选择了这张卡")
         val now = System.currentTimeMillis()
         val lastGet = if (playerIndex == 0) linkData.lastGetTimeA else linkData.lastGetTimeB
         val remain = lastGet + room.actualCdTime[playerIndex] - now
         if (remain > 1000L) throw HandlerException("还有${remain / 1000 + 1}秒才能选卡")
         if (playerIndex == 0) {
-            linkData.statusA[idx] = LEFT_SELECT.value
+            linkData.statusA[idx] = LEFT_SELECT
         } else {
-            linkData.statusB[idx] = RIGHT_SELECT.value
+            linkData.statusB[idx] = RIGHT_SELECT
         }
         pushLinkData(room)
         room.gameLogger?.logLinkAction(room, playerIndex, "link_next_card", idx)
@@ -251,7 +250,7 @@ object RoomTypeLink : RoomType {
         val idx = route[currentStep]
         if (expectedIndex != null && expectedIndex != idx) throw HandlerException("只能按路线顺序收取")
         val currentStatus = if (playerIndex == 0) linkData.statusA[idx] else linkData.statusB[idx]
-        if (!skip && currentStatus != LEFT_SELECT.value && currentStatus != RIGHT_SELECT.value) {
+        if (!skip && currentStatus != LEFT_SELECT && currentStatus != RIGHT_SELECT) {
             throw HandlerException("还未选择这张卡")
         }
         val now = System.currentTimeMillis()
@@ -269,7 +268,7 @@ object RoomTypeLink : RoomType {
             skippedRouteOf(linkData, playerIndex).remove(idx)
         }
         if (playerIndex == 0) {
-            linkData.statusA[idx] = LEFT_GET.value
+            linkData.statusA[idx] = LEFT_GET
             linkData.currentStepA = currentStep + 1
             linkData.lastGetTimeA = now
             if (linkData.currentStepA >= route.size) {
@@ -277,7 +276,7 @@ object RoomTypeLink : RoomType {
                 linkData.endMsA = now
             }
         } else {
-            linkData.statusB[idx] = RIGHT_GET.value
+            linkData.statusB[idx] = RIGHT_GET
             linkData.currentStepB = currentStep + 1
             linkData.lastGetTimeB = now
             if (linkData.currentStepB >= route.size) {
@@ -300,17 +299,17 @@ object RoomTypeLink : RoomType {
         val idx = route[step - 1]
         val now = System.currentTimeMillis()
         if (playerIndex == 0) {
-            route.drop(step).forEach { linkData.statusA[it] = NONE.value }
+            route.drop(step).forEach { linkData.statusA[it] = NONE }
             route.drop(step - 1).forEach { linkData.skippedIdxA.remove(it) }
-            linkData.statusA[idx] = LEFT_SELECT.value
+            linkData.statusA[idx] = LEFT_SELECT
             linkData.currentStepA = step - 1
             linkData.eventA = 1
             linkData.endMsA = 0
             linkData.lastGetTimeA = now - room.actualCdTime[0]
         } else {
-            route.drop(step).forEach { linkData.statusB[it] = NONE.value }
+            route.drop(step).forEach { linkData.statusB[it] = NONE }
             route.drop(step - 1).forEach { linkData.skippedIdxB.remove(it) }
-            linkData.statusB[idx] = RIGHT_SELECT.value
+            linkData.statusB[idx] = RIGHT_SELECT
             linkData.currentStepB = step - 1
             linkData.eventB = 1
             linkData.endMsB = 0
@@ -525,15 +524,7 @@ object RoomTypeLink : RoomType {
         return false
     }
 
-    private fun mergeStatus(a: Int, b: Int): Int = when {
-        a == LEFT_GET.value && b == RIGHT_GET.value -> BOTH_GET.value
-        a == LEFT_SELECT.value && b == RIGHT_SELECT.value -> BOTH_SELECT.value
-        a == LEFT_GET.value -> LEFT_GET.value
-        b == RIGHT_GET.value -> RIGHT_GET.value
-        a == LEFT_SELECT.value -> LEFT_SELECT.value
-        b == RIGHT_SELECT.value -> RIGHT_SELECT.value
-        else -> 0
-    }
+    private fun mergeStatus(a: Int, b: Int): Int = a or b
 
     private fun pushLinkData(room: Room) {
         room.push("push_link_data", room.linkData!!.encode())

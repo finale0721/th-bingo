@@ -24,6 +24,7 @@ dependencies {
     implementation("org.apache.poi:poi-ooxml:5.4.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    testImplementation(kotlin("test-junit5"))
 }
 
 kotlin {
@@ -35,6 +36,10 @@ kotlin {
 
 application {
     mainClass.set("org.tfcc.bingo.MainKt")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 tasks.withType<Jar> {

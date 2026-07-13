@@ -17,6 +17,9 @@ data class StartCustomGameMessage(
     @SerialName("spell_status")
     val spellStatus: List<Int>,
 
+    @SerialName("spell_status_version")
+    val spellStatusVersion: Int = 1,
+
     @SerialName("initial_left_time")
     val initialLeftTime: Int, // 秒
 

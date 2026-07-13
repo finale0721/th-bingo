@@ -6,6 +6,9 @@ import org.tfcc.bingo.message.HandlerException
 sealed interface RoomType {
     val name: String
 
+    val optionalSpellStatusParser: OptionalSpellStatusParser
+        get() = DefaultOptionalSpellStatusParser
+
     fun difficultyMode(difficulty: Int?): DifficultyMode = DifficultyMode.NORMAL
 
     @Throws(HandlerException::class)
@@ -91,7 +94,7 @@ sealed interface RoomType {
         room.started = true
         room.startMs = System.currentTimeMillis()
         room.spellStatus = Array(room.spells!!.size) { SpellStatus.NONE }
-        room.spellStatusInPlayerClient = Array(room.players.size) { room.spellStatus!!.map { it.value }.toIntArray() }
+        room.spellStatusInPlayerClient = Array(room.players.size) { room.spellStatus!!.toIntArray() }
         room.locked = true
         room.banPick = null
         room.refreshManager1 = RefreshSpellManager()
@@ -172,16 +175,10 @@ sealed interface RoomType {
      * @param playerIndex 0:左侧玩家，1:右侧玩家，-1:不是玩家
      */
     fun getAllSpellStatus(room: Room, playerIndex: Int): List<Int> {
-        return room.spellStatus!!.map { it.value }
+        return room.spellStatus!!.toList()
     }
 
     /** 有符卡的状态被直接设定时，应如何进行后处理 */
-    fun updateSpellStatusPostProcesser(
-        room: Room,
-        player: Player,
-        spellIndex: Int,
-        prevStatus: SpellStatus,
-        status: SpellStatus
-    ) {
+    fun updateSpellStatusPostProcesser(room: Room, player: Player, spellIndex: Int, prevStatus: Int, status: Int) {
     }
 }

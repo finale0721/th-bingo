@@ -16,7 +16,7 @@ class Room(
     var startMs: Long = 0
 
     /** 姣忎釜鏍煎瓙鐨勭姸鎬?*/
-    var spellStatus: Array<SpellStatus>? = null
+    var spellStatus: Array<Int>? = null
 
     /**
      * 鍙屾柟閫夋墜瀹㈡埛绔洰鍓嶆樉绀虹殑绗﹀崱鐘舵€侊紙涓氬姟閫昏緫涓嶈涔辨敼杩欎釜瀛楁锛?
