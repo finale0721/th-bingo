@@ -557,7 +557,7 @@ object RoomTypeNormal : RoomType {
                 room.spellStatus!![spellIndex] = spellStatusBackup[spellIndex]
             }
         }
-        // 盲盒模式2中，不允许出现NONE状态。翻回去的牌返回初始状态（如果不是BOTH_SELECT）
+        // 盲盒模式2中，不允许出现NONE状态。翻回去的牌返回初始状态（如果不是双方同时选择）
         if (room.roomConfig.blindSetting == 3) {
             if (status.basicSpellStatus() == NONE && prevStatus.isOneSelectStatus()) {
                 room.spellStatus!![spellIndex] = spellStatusBackup[spellIndex]

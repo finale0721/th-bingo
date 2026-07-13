@@ -1,5 +1,6 @@
 package org.tfcc.bingo
 
+import kotlinx.serialization.json.Json
 import org.tfcc.bingo.message.GameLog
 import org.tfcc.bingo.message.LinkData
 import org.tfcc.bingo.message.PlayerAction
@@ -88,5 +89,13 @@ class SpellStatusTest {
         assertEquals("set-${LEFT_SELECT or RIGHT_SELECT}", converted.actions.single().actionType)
         assertEquals(listOf(NONE, LEFT_SELECT, LEFT_GET), converted.linkData!!.statusA)
         assertEquals(listOf(NONE, RIGHT_SELECT, RIGHT_GET), converted.actions.single().linkData!!.statusB)
+    }
+
+    @Test
+    fun `replays without a status version deserialize as legacy data`() {
+        val legacy = Json.decodeFromString<GameLog>("{}")
+
+        assertEquals(SpellStatusConverter.LEGACY_VERSION, legacy.spellStatusVersion)
+        assertEquals(SpellStatusConverter.CURRENT_VERSION, SpellStatusConverter.convertGameLog(legacy).spellStatusVersion)
     }
 }
