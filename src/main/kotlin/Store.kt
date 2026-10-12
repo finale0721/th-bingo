@@ -69,6 +69,8 @@ object Store {
         return player
     }
 
+    fun findPlayer(name: String): Player? = playerCache[name]
+
     fun putRoom(room: Room) {
         roomCache[room.roomId] = room
     }

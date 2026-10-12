@@ -10,7 +10,9 @@ import io.netty.handler.timeout.IdleStateEvent
 import io.netty.util.AttributeKey
 import org.apache.logging.log4j.kotlin.logger
 import org.tfcc.bingo.Dispatcher
+import org.tfcc.bingo.Store
 import org.tfcc.bingo.Supervisor
+import org.tfcc.bingo.pushPlayersOnline
 import java.net.SocketException
 
 class WebSocketServerChannelHandler : SimpleChannelInboundHandler<WebSocketFrame>() {
@@ -27,7 +29,14 @@ class WebSocketServerChannelHandler : SimpleChannelInboundHandler<WebSocketFrame
     @Throws(Exception::class)
     override fun channelInactive(ctx: ChannelHandlerContext) {
         logger.debug("客户端断开连接：${ctx.channel()}")
-        Supervisor.removeChannel(ctx.channel())
+        val channel = ctx.channel()
+        // Supervisor/Store 非线程安全，统一回到 Dispatcher 单线程执行
+        Dispatcher.pool.execute {
+            val name = Supervisor.removeChannel(channel) ?: return@execute
+            val player = Store.findPlayer(name) ?: return@execute
+            // 顶号场景下映射已指向新连接，removeChannel 返回 null，不会误报离线
+            player.room?.pushPlayersOnline()
+        }
     }
 
     @Throws(Exception::class)

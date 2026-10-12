@@ -54,6 +54,11 @@ fun Room.push(pushAction: String, pushData: JsonElement?) {
     watchers.forEach { it.push(pushAction, pushData) }
 }
 
+/** 广播两位选手的连接状态快照，登录/断线时调用；离线期间错过推送的成员靠下一次快照自愈 */
+fun Room.pushPlayersOnline() {
+    push("push_player_status", JsonObject(mapOf("players_online" to playersOnline().encode())))
+}
+
 private val handlers = mapOf(
     "login" to LoginHandler,
     "create_room" to CreateRoomHandler,
@@ -150,6 +155,8 @@ object Dispatcher {
                             player = Store.getPlayer(name, pwd)
                             val oldChannel = Supervisor.put(ctx.channel(), player.name)
                             oldChannel?.push("push_kick", null)
+                            // 重连登录后重推快照：既通知房内其他人该玩家已上线，也让该玩家补齐离线期间错过的状态
+                            player.room?.pushPlayersOnline()
                         }
 
                         "heart" -> {
