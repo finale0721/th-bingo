@@ -105,6 +105,17 @@ object SpellConfig {
         return rollSpellLeftCache
     }
 
+    /** 保底替换后重建剩余卡池缓存，供 RefreshSpellManager 初始化使用 */
+    fun commitRollCache(spells: List<Spell>) {
+        val cache = HashMap<Boolean, HashMap<Int, LinkedList<Spell>>>()
+        spells.forEach { spell ->
+            cache.getOrPut(spell.rank != "L") { HashMap() }
+                .getOrPut(spell.star) { LinkedList() }
+                .add(spell)
+        }
+        rollSpellLeftCache = cache
+    }
+
     // ---- Shared drawing helpers ----
 
     private fun buildSpellMap(

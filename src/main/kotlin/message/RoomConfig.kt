@@ -111,6 +111,9 @@ class RoomConfig(
     val linkEndB: Int = boardSize * (boardSize - 1),
     @SerialName("custom_card_pool_enabled")
     val customCardPoolEnabled: Boolean = false,
+    /** 保底数量（BP后抽卡时每个保的作品至少出现在盘面上的张数），0为关闭 */
+    @SerialName("pick_guarantee_count")
+    val pickGuaranteeCount: Int = 0,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -140,6 +143,8 @@ class RoomConfig(
         customLevelCount.all { it in 0..(boardSize * boardSize) } ||
             throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
         boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
+        pickGuaranteeCount in 0..(boardSize * boardSize * 20 / 100) ||
+            throw HandlerException("保底数量范围应为0~${boardSize * boardSize * 20 / 100}")
         (type != 2 || boardSize == 5) || throw HandlerException("BP赛仅支持5x5棋盘")
         (type != 3 || blindSetting == 1) || throw HandlerException("Link赛不支持盲盒模式")
         (type != 3 || dualBoard == 0) || throw HandlerException("Link赛不支持双盘模式")
@@ -238,7 +243,8 @@ class RoomConfig(
             linkEndA = config.linkEndA ?: linkEndA,
             linkStartB = config.linkStartB ?: linkStartB,
             linkEndB = config.linkEndB ?: linkEndB,
-            customCardPoolEnabled = config.customCardPoolEnabled ?: customCardPoolEnabled
+            customCardPoolEnabled = config.customCardPoolEnabled ?: customCardPoolEnabled,
+            pickGuaranteeCount = config.pickGuaranteeCount ?: pickGuaranteeCount
         )
     }
 }
@@ -348,6 +354,9 @@ class RoomConfigNullable(
     val linkEndB: Int? = null,
     @SerialName("custom_card_pool_enabled")
     val customCardPoolEnabled: Boolean? = null,
+    /** 保底数量（BP后抽卡时每个保的作品至少出现在盘面上的张数），0为关闭 */
+    @SerialName("pick_guarantee_count")
+    val pickGuaranteeCount: Int? = null,
 ) {
     @Throws(HandlerException::class)
     fun validate() {
@@ -377,6 +386,8 @@ class RoomConfigNullable(
         customLevelCount == null || boardSize == null || customLevelCount.all { it in 0..(boardSize * boardSize) } ||
             throw HandlerException("自定义等级数量数值范围应为0~${boardSize * boardSize}")
         boardSize == null || boardSize in 4..6 || throw HandlerException("棋盘尺寸应为4~6")
+        pickGuaranteeCount == null || boardSize == null || pickGuaranteeCount in 0..(boardSize * boardSize * 20 / 100) ||
+            throw HandlerException("保底数量范围应为0~${boardSize * boardSize * 20 / 100}")
         type == null || boardSize == null || type != 2 || boardSize == 5 || throw HandlerException("BP赛仅支持5x5棋盘")
         type == null || blindSetting == null || type != 3 || blindSetting == 1 ||
             throw HandlerException("Link赛不支持盲盒模式")

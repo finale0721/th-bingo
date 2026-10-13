@@ -62,9 +62,12 @@ sealed interface RoomType {
                         )
                     }
                 }
+                PickGuarantee.apply(room)
                 break
             } catch (e: HandlerException) {
-                if (++retryCount >= 10 || e.message != "符卡数量不足") {
+                if (++retryCount >= 10 ||
+                    (e.message != "符卡数量不足" && e.message != PickGuarantee.FAIL_MESSAGE)
+                ) {
                     logger.error("随符卡失败", e)
                     throw e
                 }

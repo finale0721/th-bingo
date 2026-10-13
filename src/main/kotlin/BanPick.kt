@@ -156,6 +156,15 @@ class BanPick(private val whoFirst: Int) {
         return games.toTypedArray() to ranks
     }
 
+    /**
+     * 保底需求：作品码 -> 需要出现在盘面上的数量。
+     * 每个保的作品都只计N张，双方保同一作品时仍为N张；EX与PASS（空选）不计入。
+     */
+    fun pickRequirements(count: Int): Map<String, Int> = (pick[0] + pick[1])
+        .filter { it.isNotEmpty() && it != "EX" }
+        .distinct()
+        .associateWith { count }
+
     companion object {
         private val turn = arrayOf(listOf(1, 3, 5, 8, 9), listOf(2, 4, 6, 7, 10))
         private val games = listOf("6", "7", "8", "10", "11", "12", "13", "14", "15", "16", "17", "18")
