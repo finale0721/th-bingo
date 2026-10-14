@@ -19,7 +19,7 @@ import org.tfcc.bingo.message.HandlerException
 * * 9999：结束
 *
 * 流程顺序：
-* * -1（双方都强制）->1->2->5->6->7->8->9->10->9999（无EX，双方正常完成，无人自动PASS）
+* * -1（双方都强制）->9999（直接结束BP阶段：无保无ban，EX关闭，全部作品都可能出现）
 * * -1（A强制）->1（A自动PASS）->2->5（A自动PASS）->6->7->8（A自动PASS）->9（A自动PASS）->10->9999
 * * -1（B强制）->1->2（B自动PASS）->5->6（B自动PASS）->7（B自动PASS）->8->9->10（B自动PASS）->9999
 * * 1->2（如果都保ex）->3->4->5->6->7->8->9->10->9999
@@ -80,7 +80,8 @@ class BanPick(private val whoFirst: Int) {
         if (phase == -1) {
             forceBanEx[playerIndex] = parseVote(selection)
             if (forceBanEx[0] != 0 && forceBanEx[1] != 0) {
-                phase = 1
+                // 双方都强制：无人愿意参与BP，直接结束BP阶段（无保无ban，EX关闭）
+                phase = if (forceBanEx[0] == 1 && forceBanEx[1] == 1) 9999 else 1
                 autoPass()
             }
             return phase
@@ -138,10 +139,9 @@ class BanPick(private val whoFirst: Int) {
 
     /**
      * 强制BanEX的玩家剩余环节全部自动PASS（追加空选，与手动跳过一致）。
-     * 双方都强制时本局变为无EX的正常BP，双方正常参与，无人自动PASS。
+     * 双方都强制时不进入这里：投票决议时已直接结束BP（phase 9999）。
      */
     private fun autoPass() {
-        if (forceBanEx[0] == 1 && forceBanEx[1] == 1) return
         while (phase in 1..10) {
             val actor = if (phase in turn[0]) 0 else 1
             if (forceBanEx[actor] != 1) break
